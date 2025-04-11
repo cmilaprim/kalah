@@ -18,22 +18,22 @@ O objetivo deste projeto é aplicar os conceitos de **Engenharia de Software**, 
 ---
 
 ## 👨‍💻 Autores
-Desenvolvido por Aline Cristina Meyer, Camila Prim e Fabio Fernandes da Silva Junior
-Disciplina: Análise e Projetos de Sistemas
-Curso: Sistemas de Informação
-Instituição: Universidade Federal de Santa Catarina (UFSC)
+- Desenvolvido por Aline Cristina Meyer, Camila Prim e Fabio Fernandes da Silva Junior
+- Disciplina: Análise e Projetos de Sistemas
+- Curso: Sistemas de Informação
+- Instituição: Universidade Federal de Santa Catarina (UFSC)
 
 ---
 
 ## 🛠️ Estrutura do Projeto
 
 📦 kalah-game/  
-├── controller/ 
-├── model/ 
-|--utils/
-├── view/
-├── main.py   
-├── dogfile.py 
+├── controller/ <br>
+├── model/ <br>
+├── utils/<br>
+├── view/<br>
+├── main.py  <br> 
+├── dogfile.py <br>
 └── README.md
 
 
