@@ -4,18 +4,17 @@ from models.semente import Semente
 
 class Tabuleiro:
     def __init__(self):
-        # 1) Cada lado é uma LISTA (não tupla!) de 6 casas,
-        #    e cada casa é uma lista de 4 sementes do respectivo jogador:
+        #cada lado é uma lista de 6 casas e cada casa é uma lista de 4 sementes do respectivo jogador:
         lado1 = [[Semente(1) for _ in range(4)] for _ in range(6)]
         lado2 = [[Semente(2) for _ in range(4)] for _ in range(6)]
-        # Agora self.casas é uma lista mutável de dois elementos:
+        #agora self.casas é uma lista mutável de dois elementos:
         self.casas: List[List[List[Semente]]] = [lado1, lado2]
 
-        # 2) Armazéns começam vazios — lista mutável de duas listas:
+        #armazéns começam vazios — lista mutável de duas listas:
         self.armazens: List[List[Semente]] = [[], []]
 
-        # jogador_atual = 1 ou 2
-        self.jogador_atual: int = 0
+        #jogador_atual = 1 ou 2
+        self.jogador_atual: int = 1
 
     def estado_em_lista(self) -> List[List[int]]:
         # retorna 12 listas, cada lista = [1,2,1,1,…] indicando o dono de cada semente
@@ -38,73 +37,91 @@ class Tabuleiro:
         return 0 <= idx < 6 and len(self.casas[lado][idx]) > 0
 
     def semear(self, casa_index: int) -> bool:
-        # retira sementes da casa escolhida
-        lado = 0 if self.jogador_atual == 1 else 1
-        idx  = casa_index if lado == 0 else casa_index - 6
-        sementes_na_mao = self.casas[lado][idx]
-        self.casas[lado][idx] = []
+        #define o lado (0 = Jogador1, 1 = Jogador2) e índice local (0..5)
+        lado      = 0 if self.jogador_atual == 1 else 1
+        idx_local = casa_index if lado == 0 else casa_index - 6
 
-        # cria lista linear de “poços” (6 casas P1, armazém P1, 6 casas P2, armazém P2)
-        poços: List[List[Semente]] = (
-            [self.casas[0][i] for i in range(6)] +
-            [self.armazens[0]] +
-            [self.casas[1][i] for i in range(6)] +
-            [self.armazens[1]]
-        )
+        #colhe todas as sementes da casa escolhida
+        sementes_na_mao = self.casas[lado][idx_local]
+        self.casas[lado][idx_local] = []
 
-        # mapa de casa_index → índice em poços
-        flat_idx = idx if lado == 0 else idx + 7  # +7 pula armazém P1
-        own_store = 6 if lado == 0 else 13
-        opp_store = 13 if lado == 0 else 6
+        #monta o caminho de semeadura (path) SEMPRE em direção ao próprio armazém:
+        path: List[tuple] = []
+        if lado == 0:
+            # --- jogador 1 (topo) semeia ANTI‑HORÁRIO ---
+            # a) casas à ESQUERDA na linha de cima
+            for j in range(idx_local - 1, -1, -1):
+                path.append(("pit", 0, j))
+            # b) próprio armazém
+            path.append(("store", 0, None))
+            # c) todas as casas do adversário, da esquerda para a direita
+            for j in range(6):
+                path.append(("pit", 1, j))
+            # d) completa o ciclo: casas à DIREITA na linha de cima
+            for j in range(5, idx_local, -1):
+                path.append(("pit", 0, j))
 
-        # semeia pulando armazém adversário
+        else:
+            # --- Jogador 2 (baixo) semeia HORÁRIO ---
+            # a) casas à DIREITA na linha de baixo
+            for j in range(idx_local + 1, 6):
+                path.append(("pit", 1, j))
+            # b) próprio armazém
+            path.append(("store", 1, None))
+            # c) todas as casas do adversário, da direita para a esquerda
+            for j in range(5, -1, -1):
+                path.append(("pit", 0, j))
+            # d) completa o ciclo: casas à ESQUERDA na linha de baixo
+            for j in range(0, idx_local):
+                path.append(("pit", 1, j))
+
+        #distribui as sementes seguindo o path em looping
+        última_pos = None
+        k = 0
         while sementes_na_mao:
-            flat_idx = (flat_idx + 1) % 14
-            if flat_idx == opp_store:
-                continue
-            poços[flat_idx].append(sementes_na_mao.pop(0))
+            tipo, s, j = path[k % len(path)]
+            if tipo == "pit":
+                self.casas[s][j].append(sementes_na_mao.pop(0))
+            else:  # store
+                self.armazens[s].append(sementes_na_mao.pop(0))
+            última_pos = (tipo, s, j)
+            k += 1
 
-        last = flat_idx
+        #captura: se a última caiu em um buraco vazio do próprio lado
+        if última_pos[0] == "pit" and última_pos[1] == lado:
+            _, _, j = última_pos
+            if len(self.casas[lado][j]) == 1:
+                opp_j = 5 - j
+                if self.casas[1 - lado][opp_j]:
+                    # move tudo para o armazém
+                    self.armazens[lado].extend(
+                        self.casas[1 - lado][opp_j] + self.casas[lado][j]
+                    )
+                    self.casas[1 - lado][opp_j] = []
+                    self.casas[lado][j] = []
 
-        # captura
-        if last != own_store:
-            # caiu num buraco do lado do jogador atual?
-            if (lado == 0 and 0 <= last < 6 or
-                lado == 1 and 7 <= last < 13) and len(poços[last]) == 1:
-                opp = 12 - last
-                if poços[opp]:
-                    # move todas as sementes (incluindo a que acabou de cair)
-                    self.armazens[lado].extend(poços[opp] + poços[last])
-                    poços[opp].clear()
-                    poços[last].clear()
-
-        # fim de jogo?
-        if all(len(poços[i]) == 0 for i in range(6)) or all(len(poços[i]) == 0 for i in range(7,13)):
+        #fim de jogo: um dos lados ficou sem sementes nas casas
+        if all(len(c) == 0 for c in self.casas[0]) or all(len(c) == 0 for c in self.casas[1]):
             # recolhe o resto
-            self.armazens[0].extend(poços[i] for i in range(6))
-            self.armazens[1].extend(poços[i] for i in range(7,13))
-            for i in list(range(6)) + list(range(7,13)):
-                poços[i].clear()
-            # atualiza casas
-            self._sync_from_poços(poços)
-            return False
+            for j in range(6):
+                self.armazens[0].extend(self.casas[0][j])
+                self.casas[0][j] = []
+                self.armazens[1].extend(self.casas[1][j])
+                self.casas[1][j] = []
+            return False  # não há turno extra
 
-        # atualiza casas e armazéns a partir de poços
-        self._sync_from_poços(poços)
-
-        # turno extra?
-        return last == own_store
+        #turno extra?
+        return (última_pos[0] == "store" and última_pos[1] == lado)
 
     def _sync_from_poços(self, poços: List[List[Semente]]):
-        # re-distribui poços de volta em self.casas e self.armazens
+        #redistribui poços de volta em self.casas e self.armazens
         self.casas[0] = poços[0:6]
         self.armazens[0] = poços[6]
         self.casas[1] = poços[7:13]
         self.armazens[1] = poços[13]
 
     def jogo_terminou(self) -> bool:
-        return all(len(c) == 0 for c in self.casas[0]) or \
-               all(len(c) == 0 for c in self.casas[1])
+        return all(len(c) == 0 for c in self.casas[0]) or all(len(c) == 0 for c in self.casas[1])
 
     def obter_vencedor(self) -> Optional[int]:
         a, b = len(self.armazens[0]), len(self.armazens[1])

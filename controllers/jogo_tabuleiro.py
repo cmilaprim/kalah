@@ -10,14 +10,14 @@ from views.interface_jogador import InterfaceJogador
 class JogoTabuleiro:
     def __init__(self, root: tk.Tk):
         self.modelo = Tabuleiro()
-        # 2) Cria a view, injetando este controller
+        #cria a view, injetando este controller
         self.interface = InterfaceJogador(root, self)
-        # 3) Desenha o estado inicial
+        #desenha o estado inicial
         self.interface.receive_move(
-            posicao=-1,                             # nenhuma casa ficou marcada
-            jogador=self.modelo.jogador_atual + 1,  # +1 porque view mostra 1 ou 2
-            estado_tabuleiro=self.modelo.estado_em_lista(),  # List[List[int]]
-            armazens=self.modelo.armazens_em_lista()         # List[List[int]]
+            posicao=-1,                             #nenhuma casa ficou marcada
+            jogador=self.modelo.jogador_atual,
+            estado_tabuleiro=self.modelo.estado_em_lista(),  #List[List[int]]
+            armazens=self.modelo.armazens_em_lista()         #List[List[int]]
         )
 
     def jogada_valida(self, casa_index: int) -> bool:
@@ -27,10 +27,10 @@ class JogoTabuleiro:
         if not self.jogada_valida(casa_index):
             return
 
-        # faz toda a lógica de semeadura, captura e turno extra
+        #faz toda a lógica de semeadura, captura e turno extra
         extra_turn = self.modelo.semear(casa_index)
 
-        # se o jogo terminou, avisa o vencedor e sai
+        #se o jogo terminou, avisa o vencedor e sai
         if self.modelo.jogo_terminou():
             vencedor: Optional[int] = self.modelo.obter_vencedor()
             self.interface.inform_winner(
@@ -38,21 +38,21 @@ class JogoTabuleiro:
             )
             return
 
-        # alterna turno se não for extra
+        #alterna turno se não for extra
         self.modelo.alternar_turno(extra_turn)
 
-        # 4) Atualiza a view com o **novo** estado
+        #atualiza a view com o **novo** estado
         self.interface.receive_move(
             posicao=casa_index,
-            jogador=self.modelo.jogador_atual + 1,
+            jogador=self.modelo.jogador_atual,
             estado_tabuleiro=self.modelo.estado_em_lista(),
             armazens=self.modelo.armazens_em_lista()
         )
 
     def reiniciar_jogo(self) -> None:
-        # reinicializa o modelo
+        #reinicializa o modelo
         self.modelo = Tabuleiro()
-        # 5) Desenha novamente o estado **zerado**
+        #desenha novamente o estado zerado
         self.interface.receive_move(
             posicao=-1,
             jogador=self.modelo.jogador_atual + 1,
@@ -61,6 +61,6 @@ class JogoTabuleiro:
         )
 
     def jogo_terminou(self) -> bool:
-        # se a sua Interface chama self.controlador.jogo_terminou(),
-        # basta repassar ao modelo:
+        #se a sua Interface chama self.controlador.jogo_terminou(),
+        #basta repassar ao modelo:
         return self.modelo.jogo_terminou()
