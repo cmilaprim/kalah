@@ -4,16 +4,15 @@ from models.semente import Semente
 
 class Tabuleiro:
     def __init__(self):
-        #cada lado é uma lista de 6 casas e cada casa é uma lista de 4 sementes do respectivo jogador:
+        # cada lado é uma lista de 6 casas e cada casa contém sementes do respectivo jogador
         lado1 = [[Semente(1) for _ in range(4)] for _ in range(6)]
         lado2 = [[Semente(2) for _ in range(4)] for _ in range(6)]
-        #agora self.casas é uma lista mutável de dois elementos:
         self.casas: List[List[List[Semente]]] = [lado1, lado2]
 
-        #armazéns começam vazios — lista mutável de duas listas:
+        # armazéns começam vazios
         self.armazens: List[List[Semente]] = [[], []]
 
-        #jogador_atual = 1 ou 2
+        # jogador_atual = 1 ou 2
         self.jogador_atual: int = 1
 
     def estado_em_lista(self) -> List[List[int]]:
@@ -37,45 +36,36 @@ class Tabuleiro:
         return 0 <= idx < 6 and len(self.casas[lado][idx]) > 0
 
     def semear(self, casa_index: int) -> bool:
-        #define o lado (0 = Jogador1, 1 = Jogador2) e índice local (0..5)
+        # define o lado (0 = Jogador1, 1 = Jogador2) e índice local (0..5)
         lado      = 0 if self.jogador_atual == 1 else 1
         idx_local = casa_index if lado == 0 else casa_index - 6
 
-        #colhe todas as sementes da casa escolhida
+        # colhe todas as sementes da casa escolhida
         sementes_na_mao = self.casas[lado][idx_local]
         self.casas[lado][idx_local] = []
 
-        #monta o caminho de semeadura (path) SEMPRE em direção ao próprio armazém:
+        # monta o caminho de semeadura (path) sempre em direção ao próprio armazém
         path: List[tuple] = []
         if lado == 0:
-            # --- jogador 1 (topo) semeia ANTI‑HORÁRIO ---
-            # a) casas à ESQUERDA na linha de cima
+            # Jogador 1 (topo) semeia ANTI‑HORÁRIO
             for j in range(idx_local - 1, -1, -1):
                 path.append(("pit", 0, j))
-            # b) próprio armazém
             path.append(("store", 0, None))
-            # c) todas as casas do adversário, da esquerda para a direita
             for j in range(6):
                 path.append(("pit", 1, j))
-            # d) completa o ciclo: casas à DIREITA na linha de cima
             for j in range(5, idx_local, -1):
                 path.append(("pit", 0, j))
-
         else:
-            # --- Jogador 2 (baixo) semeia HORÁRIO ---
-            # a) casas à DIREITA na linha de baixo
+            # Jogador 2 (baixo) semeia HORÁRIO
             for j in range(idx_local + 1, 6):
                 path.append(("pit", 1, j))
-            # b) próprio armazém
             path.append(("store", 1, None))
-            # c) todas as casas do adversário, da direita para a esquerda
             for j in range(5, -1, -1):
                 path.append(("pit", 0, j))
-            # d) completa o ciclo: casas à ESQUERDA na linha de baixo
             for j in range(0, idx_local):
                 path.append(("pit", 1, j))
 
-        #distribui as sementes seguindo o path em looping
+        # distribui as sementes seguindo o path em looping
         última_pos = None
         k = 0
         while sementes_na_mao:
@@ -87,34 +77,29 @@ class Tabuleiro:
             última_pos = (tipo, s, j)
             k += 1
 
-        #captura: se a última caiu em um buraco vazio do próprio lado
-        if última_pos[0] == "pit" and última_pos[1] == lado:
-            _, _, j = última_pos
-            if len(self.casas[lado][j]) == 1:
-                opp_j = 5 - j
-                if self.casas[1 - lado][opp_j]:
-                    # move tudo para o armazém
-                    self.armazens[lado].extend(
-                        self.casas[1 - lado][opp_j] + self.casas[lado][j]
-                    )
-                    self.casas[1 - lado][opp_j] = []
-                    self.casas[lado][j] = []
+        # captura: se a última caiu em um buraco vazio do próprio lado
+        tipo, pit_lado, j = última_pos
+        if tipo == "pit" and pit_lado == lado and len(self.casas[lado][j]) == 1:
+            opp_lado = 1 - lado
+            opp_j = j
+            if self.casas[opp_lado][opp_j]:
+                capturadas = self.casas[opp_lado][opp_j] + self.casas[lado][j]
+                self.armazens[lado].extend(capturadas)
+                self.casas[opp_lado][opp_j] = []
+                self.casas[lado][j] = []
 
-        #fim de jogo: um dos lados ficou sem sementes nas casas
+        # fim de jogo
         if all(len(c) == 0 for c in self.casas[0]) or all(len(c) == 0 for c in self.casas[1]):
-            # recolhe o resto
             for j in range(6):
-                self.armazens[0].extend(self.casas[0][j])
-                self.casas[0][j] = []
-                self.armazens[1].extend(self.casas[1][j])
-                self.casas[1][j] = []
-            return False  # não há turno extra
+                self.armazens[0].extend(self.casas[0][j]); self.casas[0][j] = []
+                self.armazens[1].extend(self.casas[1][j]); self.casas[1][j] = []
+            return False
 
-        #turno extra?
+        # turno extra?
         return (última_pos[0] == "store" and última_pos[1] == lado)
-
+    
     def _sync_from_poços(self, poços: List[List[Semente]]):
-        #redistribui poços de volta em self.casas e self.armazens
+        # redistribui poços de volta em self.casas e self.armazens
         self.casas[0] = poços[0:6]
         self.armazens[0] = poços[6]
         self.casas[1] = poços[7:13]
