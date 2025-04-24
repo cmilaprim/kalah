@@ -51,7 +51,7 @@ class InterfaceJogador(ttk.Frame):
         # botão desistir
         self.frame_botao = tk.Frame(self, bg=self.cores['fundo'])
         self.frame_botao.pack(fill=tk.X, pady=10)
-        self.btn_desistir = tk.Button(self.frame_botao,text="DESISTIR",font=("Helvetica", 16, "bold"),bg=self.cores['botao_desistir'],fg=self.cores['texto_botoes'], command=self.controlador.jogo_terminou,width=15,padx=20,pady=5)
+        self.btn_desistir = tk.Button(self.frame_botao,text="DESISTIR",font=("Helvetica", 16, "bold"),bg=self.cores['botao_desistir'],fg=self.cores['texto_botoes'], command=self._on_desistir,width=15,padx=20,pady=5)
         self.btn_desistir.pack(pady=5)
 
         # estados preenchidos em receive_move()
@@ -155,3 +155,11 @@ class InterfaceJogador(ttk.Frame):
                 if self.controlador.jogada_valida(idx):
                     self.controlador.realizar_jogada(idx)
                 return
+
+    def _on_desistir(self) -> None:
+        """Handler do botão Desistir: avisa o usuário e reinicia o jogo."""
+        confirma = messagebox.askyesno("Desistir","Tem certeza que deseja desistir da partida?")
+        if not confirma:
+            return
+        messagebox.showinfo("Desistência", "Você desistiu da partida.")
+        self.controlador.reiniciar_jogo()
