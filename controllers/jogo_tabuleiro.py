@@ -11,7 +11,7 @@ class JogoTabuleiro:
     def __init__(self, root: tk.Tk):
         self.modelo = Tabuleiro()
         self.interface = InterfaceJogador(root, self)
-        self.interface.receive_move(posicao=-1, jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(), armazens=self.modelo.armazens_em_lista()        )
+        self.interface.receive_move(posicao=-1, jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(), armazens=self.modelo.armazens_em_lista())
 
     def jogada_valida(self, casa_index: int) -> bool:
         return self.modelo.jogada_valida(casa_index)
