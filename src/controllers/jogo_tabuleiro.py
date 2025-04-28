@@ -11,7 +11,7 @@ class JogoTabuleiro:
     def __init__(self, root: tk.Tk):
         self.modelo = Tabuleiro()
         self.interface = InterfaceJogador(root, self)
-        self.interface.receive_move(posicao=-1, jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(), armazens=self.modelo.armazens_em_lista())
+        self.interface.receber_jogada(posicao=-1, jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(), armazens=self.modelo.armazens_em_lista())
 
     def jogada_valida(self, casa_index: int) -> bool:
         return self.modelo.jogada_valida(casa_index)
@@ -22,15 +22,23 @@ class JogoTabuleiro:
         extra_turn = self.modelo.semear(casa_index)
         if self.modelo.jogo_terminou():
             vencedor: Optional[int] = self.modelo.obter_vencedor()
-            self.interface.inform_winner((vencedor) if vencedor is not None else 0)
+            self.interface.informar_vencedor((vencedor) if vencedor is not None else 0)
             return
 
         self.modelo.alternar_turno(extra_turn)
-        self.interface.receive_move(posicao=casa_index,jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(),armazens=self.modelo.armazens_em_lista())
+        self.interface.receber_jogada(posicao=casa_index,jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(),armazens=self.modelo.armazens_em_lista())
 
-    def reiniciar_jogo(self) -> None:
+    def comecar_partida(self) -> None:
         self.modelo = Tabuleiro()
-        self.interface.receive_move(posicao=-1,jogador=self.modelo.jogador_atual + 1,estado_tabuleiro=self.modelo.estado_em_lista(),armazens=self.modelo.armazens_em_lista())
+        self.interface.receber_jogada(
+            posicao=-1,
+            jogador=self.modelo.jogador_atual + 1,
+            estado_tabuleiro=self.modelo.estado_em_lista(),
+            armazens=self.modelo.armazens_em_lista()
+        )
+
+    def recomecar_partida(self) -> None:
+        self.comecar_partida()
 
     def jogo_terminou(self) -> bool:
         return self.modelo.jogo_terminou()

@@ -1,31 +1,27 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import simpledialog
+from dog.dog_interface import DogPlayerInterface
+from dog.dog_actor import DogActor
 import math
 from typing import List, Any
 
-
-class InterfaceJogador(ttk.Frame):
+class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def __init__(self, master: tk.Tk, controlador: Any) -> None:
         style = ttk.Style()
         style.configure('My.TFrame', background='#F7F3E8')
         super().__init__(master, style='My.TFrame')
 
         self.master = master
-        self.master.configure(bg='#F7F3E8')
         self.controlador = controlador
-
-        self.master.title("Tabuleiro de Kalah")
-        self.master.geometry("1340x800")
-        self.pack(fill=tk.BOTH, expand=True)
-        self._create_menu()
-
-        # dimensões do canvas
+        self.game_started = False
         self.tabuleiro_width = 1300
         self.tabuleiro_height = 650
-
-        # parâmetros de layout
         self.raio_casas = self.tabuleiro_width * 0.06
         self.espaco_centro_casas = self.tabuleiro_width * 0.13
+        
+        self.estado_tabuleiro: List[List[int]] = []
+        self.armazens: List[List[int]] = []
 
         self.cores = {
             'fundo': "#F7F3E8",
@@ -36,42 +32,75 @@ class InterfaceJogador(ttk.Frame):
             'texto_botoes': '#FFFFFF',
             'botao_desistir': '#FF0000',
         }
+        
+        self.inicializar_janela()
+        self.criar_status_frame()
+        self.criar_canvas()
+        self.criar_botao_desistir()
 
-        # status no topo
+        player_name = simpledialog.askstring(title="Player Identification", prompt="Qual o seu nome?")
+        self.dog_server_interface = DogActor()
+        message = self.dog_server_interface.initialize(player_name, self)
+        messagebox.showinfo(message=message)
+        
+        
+    def inicializar_janela(self) -> None:
+        self.master.configure(bg='#F7F3E8')
+        self.master.title("Tabuleiro de Kalah")
+        self.master.geometry("1340x800")
+        self.pack(fill=tk.BOTH, expand=True)
+        self.create_menu()
+
+    def criar_status_frame(self) -> None:
         self.status_frame = tk.Frame(self, bg=self.cores['fundo'], height=50)
         self.status_frame.pack(fill=tk.X, side=tk.TOP)
         self.status_label = tk.Label(self.status_frame,text="Vez do Jogador 1",font=("Helvetica", 16),bg=self.cores['fundo'],fg="#5C4033")
         self.status_label.pack(pady=10)
-
-        # canvas do tabuleiro
+        
+    def criar_canvas(self) -> None:
         self.canvas = tk.Canvas(self,width=self.tabuleiro_width,height=self.tabuleiro_height,bg=self.cores['tabuleiro'],highlightthickness=0)
         self.canvas.pack(padx=20, pady=20)
-        self.canvas.bind("<Button-1>", self._on_click)
+        self.canvas.bind("<Button-1>", self.click)
 
-        # botão desistir
+    def criar_botao_desistir(self) -> None:
         self.frame_botao = tk.Frame(self, bg=self.cores['fundo'])
         self.frame_botao.pack(fill=tk.X, pady=10)
-        self.btn_desistir = tk.Button(self.frame_botao,text="DESISTIR",font=("Helvetica", 16, "bold"),bg=self.cores['botao_desistir'],fg=self.cores['texto_botoes'], command=self._on_desistir,width=15,padx=20,pady=5)
+        self.btn_desistir = tk.Button(self.frame_botao,text="DESISTIR",font=("Helvetica", 16, "bold"), bg=self.cores['botao_desistir'], fg=self.cores['texto_botoes'],command=self.desistir,width=15,padx=20,pady=5)
         self.btn_desistir.pack(pady=5)
 
-        # estados preenchidos em receive_move()
-        self.estado_tabuleiro: List[List[int]] = []
-        self.armazens: List[List[int]] = []
-
-    def _create_menu(self) -> None:
+    def create_menu(self) -> None:
         menu_bar = tk.Menu(self.master)
         menu_opcoes = tk.Menu(menu_bar, tearoff=0)
-        menu_opcoes.add_command(label="Iniciar Partida", command=self._iniciar_partida)
-        menu_opcoes.add_command(label="Regras do Jogo", command=self._mostrar_regras)
+        menu_opcoes.add_command(label="Iniciar Partida", command=self.start_match)
+        menu_opcoes.add_command(label="Reiniciar Jogo", command=self.recomecar_partida)
+        menu_opcoes.add_command(label="Regras do Jogo", command=self.mostrar_regras)
         menu_opcoes.add_separator()
         menu_opcoes.add_command(label="Sair", command=self.master.quit)
         menu_bar.add_cascade(label="Menu", menu=menu_opcoes)
         self.master.config(menu=menu_bar)
 
-    def _iniciar_partida(self) -> None:
+    def comecar_partida(self) -> None:
+        # self.game_started = True
+        # self.controlador.comecar_partida()
+        ...
+    
+    def start_match(self):
+        start_status = self.dog_server_interface.start_match(2)
+        message = start_status.get_message()
+        messagebox.showinfo(message=message)
+    
+    def receive_start(self, start_status):
+        message = start_status.get_message()
+        messagebox.showinfo(message=message)
+    
+    def recomecar_partida(self) -> None:
+        if not self.game_started:
+            messagebox.showwarning("Atenção", "Você precisa iniciar a partida primeiro.")
+            return
+        print("strat_game")
         self.controlador.reiniciar_jogo()
 
-    def _mostrar_regras(self) -> None:
+    def mostrar_regras(self) -> None:
         regras = (
             "Regras do Kalah:\n"
             "1. O jogo começa com 4 sementes em cada buraco.\n"
@@ -84,41 +113,49 @@ class InterfaceJogador(ttk.Frame):
         )
         messagebox.showinfo("Regras do Jogo", regras)
 
-    def receive_move(self,posicao: int,jogador: int,estado_tabuleiro: List[List[int]],armazens: List[List[int]]) -> None:
+    def desistir(self) -> None:
+        confirma = messagebox.askyesno("Desistir","Tem certeza que deseja desistir da partida?")
+        if not confirma:
+            return
+        messagebox.showinfo("Desistência", "Você desistiu da partida.")
+        self.controlador.reiniciar_jogo()
+    
+    def click(self, event) -> None:
+        if not self.game_started:
+            return
+        item = self.canvas.find_closest(event.x, event.y)
+        for tag in self.canvas.gettags(item):
+            if tag.startswith("casa_"):
+                idx = int(tag.split("_",1)[1])
+                if self.controlador.jogada_valida(idx):
+                    self.controlador.realizar_jogada(idx)
+                return
+
+    def receber_jogada(self,posicao: int,jogador: int,estado_tabuleiro: List[List[int]],armazens: List[List[int]]) -> None:
         self.estado_tabuleiro = estado_tabuleiro
         self.armazens = armazens
-        self._desenhar_tabuleiro()
+        self.desenhar_tabuleiro()
         self.status_label.config(text=f"Vez do Jogador {jogador}")
 
-    def inform_winner(self, vencedor: int) -> None:
-        messagebox.showinfo("Fim de Jogo", f"O vencedor é o Jogador {vencedor}!")
-
-    def _desenhar_tabuleiro(self) -> None:
+    def desenhar_tabuleiro(self) -> None:
         self.canvas.delete("all")
-
-        # y das linhas de casas: 25% e 75%
         prop = 0.5
         y_topo = self.tabuleiro_height * (1 - prop) / 2
         y_base = self.tabuleiro_height * (1 + prop) / 2
 
-        # títulos
         self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.02,text="Casas do Jogador 1", font=("Helvetica", 14),fill=self.cores['texto_botoes'])
         self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.98,text="Casas do Jogador 2", font=("Helvetica", 14),fill=self.cores['texto_botoes'])
 
-        # x inicial para as casas
         x_start = (self.tabuleiro_width - 5*self.espaco_centro_casas)/2
 
-        # desenha 12 casas com tag "casa_{idx}"
         for idx, donos in enumerate(self.estado_tabuleiro):
             row = 0 if idx < 6 else 1
             col = idx if row == 0 else idx - 6
             x = x_start + col*self.espaco_centro_casas
             y = y_topo if row == 0 else y_base
 
-            # casas
             self.canvas.create_oval(x-self.raio_casas, y-self.raio_casas, x+self.raio_casas, y+self.raio_casas,fill=self.cores['casas'],outline=self.cores['borda_tabuleiro'],width=4,tags=(f"casa_{idx}",))
 
-            # sementes
             seed_r = 10
             for i, dono in enumerate(donos):
                 ang = math.radians(i * (360/max(1,len(donos))))
@@ -130,9 +167,7 @@ class InterfaceJogador(ttk.Frame):
 
         # armazém J1 (à esquerda)
         self.canvas.create_rectangle(20, y_topo, 100, y_base,fill=self.cores['casas'],outline=self.cores['borda_tabuleiro'], width=3)
-        # quantidade dentro
         self.canvas.create_text(60, (y_topo + y_base)/2,text=str(len(self.armazens[0])),font=("Helvetica", 16, "bold"),fill=self.cores['texto_botoes'])
-        # rótulo
         self.canvas.create_text(60, y_base + 20,text="Armazém J1",font=("Helvetica", 12),fill=self.cores['texto_botoes'])
 
         # armazém J2 (à direita)
@@ -146,20 +181,6 @@ class InterfaceJogador(ttk.Frame):
         self.canvas.create_text(cx, (y_topo + y_base)/2,text=str(len(self.armazens[1])),font=("Helvetica", 16, "bold"),fill=self.cores['texto_botoes'])
         self.canvas.create_text(cx, y_base + 20,text="Armazém J2",font=("Helvetica", 12),fill=self.cores['texto_botoes'])
 
-    def _on_click(self, event) -> None:
-        # pega o item mais próximo e lê a tag "casa_{idx}"
-        item = self.canvas.find_closest(event.x, event.y)
-        for tag in self.canvas.gettags(item):
-            if tag.startswith("casa_"):
-                idx = int(tag.split("_",1)[1])
-                if self.controlador.jogada_valida(idx):
-                    self.controlador.realizar_jogada(idx)
-                return
-
-    def _on_desistir(self) -> None:
-        """Handler do botão Desistir: avisa o usuário e reinicia o jogo."""
-        confirma = messagebox.askyesno("Desistir","Tem certeza que deseja desistir da partida?")
-        if not confirma:
-            return
-        messagebox.showinfo("Desistência", "Você desistiu da partida.")
-        self.controlador.reiniciar_jogo()
+    
+    def informar_vencedor(self, vencedor: int) -> None:
+        messagebox.showinfo("Fim de Jogo", f"O vencedor é o Jogador {vencedor}!")
