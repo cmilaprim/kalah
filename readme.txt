@@ -1,21 +1,16 @@
-Creating your game
+## Como executar
 
-1. Create and activate a virtual environment (in the folder that contains the folders dog and config);
+1. Clone/extraia este projeto em qualquer pasta do seu PC.  
+2. Abra a pasta `kalah` no Explorer.  
+3. Dê duplo-clique em `start.bat`.
 
-2. Execute 'pip install -r requirements.txt' (to install the libraries used by the framework);
+O script `gui.bat` realiza automaticamente os seguintes passos:
 
-3. Go to folder 'config' and follow the instructions therein;
+- Cria o ambiente virtual `dog` (se ainda não existir)  
+- Ativa o ambiente virtual  
+- Atualiza o `pip` e instala todas as dependências listadas em `requirements.txt`  
+- Executa `main.py` dentro da pasta `src`
 
-4. DEVELOP YOUR GAME;
+É tudo que você precisa: basta rodar o `gui.bat` e aproveitar o jogo.
 
-5. Execute 'pip freeze > requirements.txt' (to update requirements.txt with the libraries used by your game);
-
-6. To distribute your game:
-
-	a. Remove the folder of the virtual environment;
-	b. Compact and send your game with the following instrucions:
-		I. Create and activate a virtual environment;
-		II. Execute pip 'install -r requirements.txt';
-		III. To run the game:  <name_of_your_game>.py.
-
-
+---
