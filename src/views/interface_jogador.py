@@ -181,6 +181,8 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.canvas.create_text(cx, (y_topo + y_base)/2,text=str(len(self.armazens[1])),font=("Helvetica", 16, "bold"),fill=self.cores['texto_botoes'])
         self.canvas.create_text(cx, y_base + 20,text="Armazém J2",font=("Helvetica", 12),fill=self.cores['texto_botoes'])
 
-    
     def informar_vencedor(self, vencedor: int) -> None:
         messagebox.showinfo("Fim de Jogo", f"O vencedor é o Jogador {vencedor}!")
+        
+    def informar_empate(self) -> None:
+        messagebox.showinfo("Fim de Jogo", "Empate! Ambos têm o mesmo número de sementes.")
