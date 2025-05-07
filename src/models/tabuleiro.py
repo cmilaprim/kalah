@@ -1,50 +1,61 @@
 from typing import List, Optional, Tuple
-from models.semente import Semente
-from models.casa import Casa
-from models.armazem import Armazem
 from models.jogador import Jogador
 
 class Tabuleiro:
     def __init__(self):
-        self.jogadores: List[Jogador] = [Jogador(1),Jogador(2)]
-        self._inicializar_casas()
+        self.jogadores: List[Jogador] = [
+            Jogador(1),
+            Jogador(2)
+        ]
+        
+        self.inicializar_casas()
         self.jogador_atual: int = 1
 
-    def _inicializar_casas(self) -> None:
+    def inicializar_casas(self) -> None:
         for jogador in self.jogadores:
             for casa in jogador.casas:
-                for _ in range(4):
-                    casa.adicionar_semente(Semente(jogador.numero))
+                # Adiciona 2 sementes de cada tipo
+                casa.adicionar_semente(1, 2)
+                casa.adicionar_semente(2, 2)
 
     def estado_em_lista(self) -> List[List[int]]:
         resultado = []
         for jogador in self.jogadores:
             for casa in jogador.casas:
-                resultado.append([s.jogador for s in casa.sementes])
+                resultado.append([casa.contar()]) 
         return resultado
 
     def armazens_em_lista(self) -> List[List[int]]:
         return [
-            [s.jogador for s in self.jogadores[0].armazem.sementes],
-            [s.jogador for s in self.jogadores[1].armazem.sementes]
+            [self.jogadores[0].armazem.contar()],  
+            [self.jogadores[1].armazem.contar()]  
         ]
 
     def jogada_valida(self, casa_index: int) -> bool:
         idx_jogador = 0 if self.jogador_atual == 1 else 1
         idx_casa = casa_index if idx_jogador == 0 else casa_index - 6
         return 0 <= idx_casa < 6 and not self.jogadores[idx_jogador].casas[idx_casa].esta_vazia()
-
+    
     def semear(self, casa_index: int) -> bool:
-        idx_jogador = 0 if self.jogador_atual == 1 else 1
-        idx_casa = casa_index if idx_jogador == 0 else casa_index - 6
-
-        # Pegar todas as sementes da casa selecionada
-        sementes_na_mao = self.jogadores[idx_jogador].casas[idx_casa].retirar_todas()
-
-        # Construir o caminho de distribuição
-        path: List[Tuple[str, int, int]] = []
-        if idx_jogador == 0:
-            for j in range(idx_casa - 1, -1, -1):
+        idx_jog, idx_casa = self.ajustar_indices(casa_index)
+        sementes_na_mao = self.jogadores[idx_jog].casas[idx_casa].retirar_todas()  # Agora é um número
+        
+        path = self.construir_caminho(idx_jog, idx_casa)
+        última_pos = self.distribuir_sementes(path, sementes_na_mao)
+        
+        self.verificar_captura(última_pos)
+        return última_pos[0] == "store" and última_pos[1] == idx_jog
+        
+    def ajustar_indices(self, casa_index: int) -> tuple[int, int]:
+        idx_jog = 0 if self.jogador_atual == 1 else 1
+        idx_casa = casa_index if idx_jog == 0 else casa_index - 6
+        return idx_jog, idx_casa
+    
+    def construir_caminho(self, idx_jog: int, idx_casa: int) -> list[tuple[str,int,int]]:
+        path: list[tuple[str,int,int]] = []
+        if idx_jog == 0:
+            # semear no sentido anti-horário a partir de idx_casa
+            for j in range(idx_casa-1, -1, -1):
                 path.append(("pit", 0, j))
             path.append(("store", 0, None))
             for j in range(6):
@@ -52,7 +63,8 @@ class Tabuleiro:
             for j in range(5, idx_casa, -1):
                 path.append(("pit", 0, j))
         else:
-            for j in range(idx_casa + 1, 6):
+            # análogo para o segundo jogador
+            for j in range(idx_casa+1, 6):
                 path.append(("pit", 1, j))
             path.append(("store", 1, None))
             for j in range(5, -1, -1):
@@ -60,60 +72,71 @@ class Tabuleiro:
             for j in range(0, idx_casa):
                 path.append(("pit", 1, j))
 
-        path = [
-                (tipo, idx_jog, j)
-                for (tipo, idx_jog, j) in path
-                if not (tipo == "store" and idx_jog != idx_jogador)
-            ]
-
-        # Distribuir as sementes
+        # remove o armazém adversário do caminho
+        return [
+            (t, ij, j) for (t, ij, j) in path
+            if not (t == "store" and ij != idx_jog)
+        ]
+    
+    def distribuir_sementes(self, path, sementes_dict) -> tuple[str,int,int]:
         última_pos = None
         k = 0
-        while sementes_na_mao:
+        
+        # Contador total para facilitar o loop
+        total_sementes = sum(sementes_dict.values())
+        
+        # Distribui as sementes mantendo a proporção dos tipos
+        while total_sementes > 0:
             tipo, idx_jog, j = path[k % len(path)]
-            semente = sementes_na_mao.pop(0)
+            
+            # Determina qual tipo de semente colocar
+            # Prioriza o tipo 1 para simplificar
+            tipo_semente = 1 if sementes_dict[1] > 0 else 2
             
             if tipo == "pit":
-                self.jogadores[idx_jog].casas[j].adicionar_semente(semente)
-            else:
-                self.jogadores[idx_jog].armazem.adicionar_semente([semente])
+                self.jogadores[idx_jog].casas[j].adicionar_semente(tipo_semente, 1)
+            else:  # store
+                self.jogadores[idx_jog].armazem.adicionar_semente(tipo_semente, 1)
                 
+            sementes_dict[tipo_semente] -= 1
+            total_sementes -= 1
             última_pos = (tipo, idx_jog, j)
             k += 1
-
-        # Captura
+            
+        return última_pos
+    
+    def verificar_captura(self, última_pos: tuple[str,int,int]) -> None:
         tipo, idx_jog, j = última_pos
-        if tipo == "pit" and idx_jog == idx_jogador and self.jogadores[idx_jog].casas[j].contar() == 1:
-            opp_jog = 1 - idx_jog
-            opp_j = j
-            if not self.jogadores[opp_jog].casas[opp_j].esta_vazia():
-                # Capturar sementes opostas
-                sementes_oponente = self.jogadores[opp_jog].casas[opp_j].retirar_todas()
-                self.jogadores[idx_jog].armazem.adicionar_semente(sementes_oponente)
-
-        # Verificar fim de jogo
-        # if self.jogo_terminou():
-        #     for idx_jog in range(2):
-        #         for j in range(6):
-        #             sementes = self.jogadores[idx_jog].casas[j].retirar_todas()
-        #             self.jogadores[idx_jog].armazem.adicionar_semente(sementes)
-        #     return False
-
-        return (última_pos[0] == "store" and última_pos[1] == idx_jogador)
+        
+        # Só captura se acabou em uma casa própria que estava vazia antes
+        if (tipo == "pit" and 
+            idx_jog == (0 if self.jogador_atual == 1 else 1) and 
+            self.jogadores[idx_jog].casas[j].contar() == 1):
+            
+            opp_idx = 1 - idx_jog
+            # Se a casa oposta tem sementes, captura
+            sementes_oponente = self.jogadores[opp_idx].casas[j].retirar_todas()
+            # Adiciona as sementes capturadas ao armazém
+            for tipo_semente, quantidade in sementes_oponente.items():
+                if quantidade > 0:
+                    self.jogadores[idx_jog].armazem.adicionar_semente(tipo_semente, quantidade)
+            
     
     def finalizar_jogo(self) -> Optional[int]:
         """
         Coleta todas as sementes que ainda estão nas casas e
         devolve o vencedor com base no total de sementes nos armazéns.
         """
-        # (1) mover todas as sementes das 6 casas de cada jogador para seu armazém
-        for jogador in self.jogadores:
+    # Mover todas as sementes para os armazéns
+        for idx, jogador in enumerate(self.jogadores):
             for casa in jogador.casas:
                 sementes = casa.retirar_todas()
-                jogador.armazem.adicionar_semente(sementes)
-        # (2) retorna quem tem mais sementes
+                for tipo_semente, quantidade in sementes.items():
+                    if quantidade > 0:
+                        jogador.armazem.adicionar_semente(tipo_semente, quantidade)
+            
         return self.obter_vencedor()
-
+    
     def jogo_terminou(self) -> bool:
         return (all(casa.esta_vazia() for casa in self.jogadores[0].casas) or 
                 all(casa.esta_vazia() for casa in self.jogadores[1].casas))
