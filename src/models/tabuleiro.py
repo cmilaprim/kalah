@@ -1,5 +1,7 @@
 from typing import List, Optional, Tuple
 from models.jogador import Jogador
+from models.status_jogo import StatusJogo
+from models.semente import Semente   
 
 class Tabuleiro:
     def __init__(self):
@@ -7,7 +9,7 @@ class Tabuleiro:
             Jogador(1),
             Jogador(2)
         ]
-        
+        self.partida_inciada = True
         self.inicializar_casas()
         self.jogador_atual: int = 1
 
@@ -17,6 +19,13 @@ class Tabuleiro:
                 # Adiciona 2 sementes de cada tipo
                 casa.adicionar_semente(1, 2)
                 casa.adicionar_semente(2, 2)
+    
+    def obter_status_jogo(self):
+        if not self.partida_iniciada:
+            return StatusJogo.NAO_INICIADO
+        if self.jogo_terminou():
+            return StatusJogo.FINALIZADO
+        return StatusJogo.EM_ANDAMENTO
 
     def estado_em_lista(self) -> List[List[int]]:
         resultado = []
@@ -30,7 +39,6 @@ class Tabuleiro:
             [self.jogadores[0].armazem.contar()],  
             [self.jogadores[1].armazem.contar()]  
         ]
-
     def jogada_valida(self, casa_index: int) -> bool:
         idx_jogador = 0 if self.jogador_atual == 1 else 1
         idx_casa = casa_index if idx_jogador == 0 else casa_index - 6
@@ -38,13 +46,11 @@ class Tabuleiro:
     
     def semear(self, casa_index: int) -> bool:
         idx_jog, idx_casa = self.ajustar_indices(casa_index)
-        sementes_na_mao = self.jogadores[idx_jog].casas[idx_casa].retirar_todas()  # Agora é um número
-        
-        path = self.construir_caminho(idx_jog, idx_casa)
-        última_pos = self.distribuir_sementes(path, sementes_na_mao)
-        
-        self.verificar_captura(última_pos)
-        return última_pos[0] == "store" and última_pos[1] == idx_jog
+        sementes_na_mao = self.jogadores[idx_jog].casas[idx_casa].retirar_todas()
+        self.ultimo_caminho = self.construir_caminho(idx_jog, idx_casa)
+        ultima_pos = self.distribuir_sementes(self.ultimo_caminho, sementes_na_mao)
+        self.verificar_captura(ultima_pos)
+        return ultima_pos[0] == "store" and ultima_pos[1] == idx_jog
         
     def ajustar_indices(self, casa_index: int) -> tuple[int, int]:
         idx_jog = 0 if self.jogador_atual == 1 else 1
@@ -78,29 +84,39 @@ class Tabuleiro:
             if not (t == "store" and ij != idx_jog)
         ]
     
+    def get_caminho_semeadura(self) -> list[int]:
+        return [
+            ij * 6 + j
+            for (t, ij, j) in self.ultimo_caminho
+            if t == "pit"
+        ]
+    
     def distribuir_sementes(self, path, sementes_dict) -> tuple[str,int,int]:
         última_pos = None
         k = 0
         
-        # Contador total para facilitar o loop
-        total_sementes = sum(sementes_dict.values())
+        # Converter o dicionário em uma lista de sementes
+        sementes = []
+        for tipo, quantidade in sementes_dict.items():
+            for _ in range(quantidade):
+                sementes.append(Semente(tipo))
         
-        # Distribui as sementes mantendo a proporção dos tipos
+        # Total de sementes
+        total_sementes = len(sementes)
+        
         while total_sementes > 0:
-            tipo, idx_jog, j = path[k % len(path)]
+            tipo_lugar, idx_jog, j = path[k % len(path)]
             
-            # Determina qual tipo de semente colocar
-            # Prioriza o tipo 1 para simplificar
-            tipo_semente = 1 if sementes_dict[1] > 0 else 2
+            # Pega a próxima semente da lista
+            semente = sementes.pop(0)
             
-            if tipo == "pit":
-                self.jogadores[idx_jog].casas[j].adicionar_semente(tipo_semente, 1)
+            if tipo_lugar == "pit":
+                self.jogadores[idx_jog].casas[j].adicionar_semente(semente.tipo, 1)
             else:  # store
-                self.jogadores[idx_jog].armazem.adicionar_semente(tipo_semente, 1)
+                self.jogadores[idx_jog].armazem.adicionar_semente(semente.tipo, 1)
                 
-            sementes_dict[tipo_semente] -= 1
             total_sementes -= 1
-            última_pos = (tipo, idx_jog, j)
+            última_pos = (tipo_lugar, idx_jog, j)
             k += 1
             
         return última_pos
@@ -151,3 +167,4 @@ class Tabuleiro:
     def alternar_turno(self, extra: bool):
         if not extra:
             self.jogador_atual = 2 if self.jogador_atual == 1 else 1
+    

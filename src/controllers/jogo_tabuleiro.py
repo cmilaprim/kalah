@@ -2,6 +2,7 @@ import tkinter as tk
 from typing import Optional
 from models.tabuleiro import Tabuleiro
 from views.interface_jogador import InterfaceJogador
+from models.status_jogo import StatusJogo
 
 
 class JogoTabuleiro:
@@ -13,6 +14,15 @@ class JogoTabuleiro:
     def jogada_valida(self, casa_index: int) -> bool:
         return self.modelo.jogada_valida(casa_index)
 
+    def obter_status_jogo(self) -> StatusJogo:
+        return self.modelo.obter_status_jogo()
+    
+    def semear(self, casa_index: int) -> bool:
+        return self.modelo.semear(casa_index)
+    
+    def get_caminho_semeadura(self) -> list[int]: 
+        return self.modelo.get_caminho_semeadura()
+    
     def realizar_jogada(self, casa_index: int) -> None:
         if not self.jogada_valida(casa_index):
             return
@@ -21,7 +31,7 @@ class JogoTabuleiro:
         if self.modelo.jogo_terminou():
             vencedor = self.modelo.finalizar_jogo()
             if vencedor is None:
-                self.interface.informar_empate()   # ou messagebox("Empate!")
+                self.interface.informar_empate()  
             else:
                 self.interface.informar_vencedor(vencedor)
             return
