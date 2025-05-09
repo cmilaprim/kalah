@@ -137,50 +137,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.desenhar_tabuleiro()
         self.status_label.config(text=f"Vez do Jogador {jogador}")
 
-    # def desenhar_tabuleiro(self) -> None:
-    #     self.canvas.delete("all")
-    #     prop = 0.5
-    #     y_topo = self.tabuleiro_height * (1 - prop) / 2
-    #     y_base = self.tabuleiro_height * (1 + prop) / 2
-
-    #     self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.02,text="Casas do Jogador 1", font=("Helvetica", 14),fill=self.cores['texto_botoes'])
-    #     self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.98,text="Casas do Jogador 2", font=("Helvetica", 14),fill=self.cores['texto_botoes'])
-
-    #     x_start = (self.tabuleiro_width - 5*self.espaco_centro_casas)/2
-
-    #     for idx, donos in enumerate(self.estado_tabuleiro):
-    #         row = 0 if idx < 6 else 1
-    #         col = idx if row == 0 else idx - 6
-    #         x = x_start + col*self.espaco_centro_casas
-    #         y = y_topo if row == 0 else y_base
-
-    #         self.canvas.create_oval(x-self.raio_casas, y-self.raio_casas, x+self.raio_casas, y+self.raio_casas,fill=self.cores['casas'],outline=self.cores['borda_tabuleiro'],width=4,tags=(f"casa_{idx}",))
-
-    #         seed_r = 10
-    #         for i, dono in enumerate(donos):
-    #             ang = math.radians(i * (360/max(1,len(donos))))
-    #             rx = x + self.raio_casas*0.45*math.cos(ang)
-    #             ry = y + self.raio_casas*0.45*math.sin(ang)
-    #             cor = (self.cores['sementes'])
-    #             self.canvas.create_oval(rx-seed_r, ry-seed_r, rx+seed_r, ry+seed_r,fill=cor, outline="")
-    #         self.canvas.create_text(x, y, text=str(len(donos)), font=("Helvetica", 14, "bold"),fill=self.cores['texto_botoes'])
-
-    #     # armazém J1 (à esquerda)
-    #     self.canvas.create_rectangle(20, y_topo, 100, y_base,fill=self.cores['casas'],outline=self.cores['borda_tabuleiro'], width=3)
-    #     self.canvas.create_text(60, (y_topo + y_base)/2,text=str(len(self.armazens[0])),font=("Helvetica", 16, "bold"),fill=self.cores['texto_botoes'])
-    #     self.canvas.create_text(60, y_base + 20,text="Armazém J1",font=("Helvetica", 12),fill=self.cores['texto_botoes'])
-
-    #     # armazém J2 (à direita)
-    #     warehouse_width = 80
-    #     warehouse_margin = 20
-    #     x2 = self.tabuleiro_width - warehouse_margin
-    #     x1 = x2 - warehouse_width
-
-    #     self.canvas.create_rectangle(x1, y_topo, x2, y_base,fill=self.cores['casas'],outline=self.cores['borda_tabuleiro'],width=3)
-    #     cx = (x1 + x2)/2
-    #     self.canvas.create_text(cx, (y_topo + y_base)/2,text=str(len(self.armazens[1])),font=("Helvetica", 16, "bold"),fill=self.cores['texto_botoes'])
-    #     self.canvas.create_text(cx, y_base + 20,text="Armazém J2",font=("Helvetica", 12),fill=self.cores['texto_botoes'])
-
     def desenhar_tabuleiro(self) -> None:
         self.canvas.delete("all")
         prop = 0.5
