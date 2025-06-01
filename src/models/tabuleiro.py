@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 from models.jogador import Jogador
 from models.status_jogo import StatusJogo
 from models.semente import Semente   
-
+from models.status_jogo import EstadoPartida
 class Tabuleiro:
     def __init__(self):
         self.jogadores: List[Jogador] = [
@@ -20,12 +20,11 @@ class Tabuleiro:
                 casa.adicionar_semente(1, 2)
                 casa.adicionar_semente(2, 2)
     
-    def obter_status_jogo(self):
-        if not self.partida_iniciada:
-            return StatusJogo.NAO_INICIADO
-        if self.jogo_terminou():
-            return StatusJogo.FINALIZADO
-        return StatusJogo.EM_ANDAMENTO
+    def obter_estado_partida(self) -> EstadoPartida:
+        pass
+
+    def jogada_valida(self, casa_index: int) -> bool:
+        pass
 
     def estado_em_lista(self) -> List[List[int]]:
         resultado = []
@@ -124,13 +123,11 @@ class Tabuleiro:
     def verificar_captura(self, última_pos: tuple[str,int,int]) -> None:
         tipo, idx_jog, j = última_pos
         
-        # Só captura se acabou em uma casa própria que estava vazia antes
         if (tipo == "pit" and 
             idx_jog == (0 if self.jogador_atual == 1 else 1) and 
             self.jogadores[idx_jog].casas[j].contar() == 1):
             
             opp_idx = 1 - idx_jog
-            # Se a casa oposta tem sementes, captura
             sementes_oponente = self.jogadores[opp_idx].casas[j].retirar_todas()
             # Adiciona as sementes capturadas ao armazém
             for tipo_semente, quantidade in sementes_oponente.items():
@@ -143,7 +140,6 @@ class Tabuleiro:
         Coleta todas as sementes que ainda estão nas casas e
         devolve o vencedor com base no total de sementes nos armazéns.
         """
-    # Mover todas as sementes para os armazéns
         for idx, jogador in enumerate(self.jogadores):
             for casa in jogador.casas:
                 sementes = casa.retirar_todas()

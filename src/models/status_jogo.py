@@ -1,6 +1,6 @@
-from enum import Enum, auto
+from enum import Enum
 
-class StatusJogo(Enum):
-    NAO_INICIADO = auto()
-    EM_ANDAMENTO  = auto()
-    FINALIZADO    = auto()
+class EstadoPartida(Enum):
+    NAO_INICIADA = 0
+    EM_PROGRESSO = 1
+    ENCERRADA = 2

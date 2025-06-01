@@ -3,6 +3,7 @@ from typing import Optional
 from models.tabuleiro import Tabuleiro
 from views.interface_jogador import InterfaceJogador
 from models.status_jogo import StatusJogo
+from models.status_jogo import EstadoPartida
 
 
 class JogoTabuleiro:
@@ -11,11 +12,19 @@ class JogoTabuleiro:
         self.interface = InterfaceJogador(root, self)
         self.interface.receber_jogada(posicao=-1, jogador=self.modelo.jogador_atual,estado_tabuleiro=self.modelo.estado_em_lista(), armazens=self.modelo.armazens_em_lista())
 
-    def jogada_valida(self, casa_index: int) -> bool:
-        return self.modelo.jogada_valida(casa_index)
+    def realizar_jogada(self, casa_index: int):
+        estado_partida = self.modelo.obter_estado_partida()
+        if estado_partida != EstadoPartida.EM_PROGRESSO:
+            self.interface.exibir_mensagem("Partida não iniciada ou encerrada.")
+            return
 
-    def obter_status_jogo(self) -> StatusJogo:
-        return self.modelo.obter_status_jogo()
+        if not self.modelo.jogada_valida(casa_index):
+            self.interface.exibir_mensagem("Jogada inválida.")
+            return
+        
+        estado_atualizado = self.modelo.semear_casa(casa_index)
+        self.interface.atualiza_tabuleiro(estado_atualizado)
+        self.enviar_jogada_dog(casa_index)
     
     def semear(self, casa_index: int) -> bool:
         return self.modelo.semear(casa_index)
