@@ -1,6 +1,5 @@
 from typing import List, Optional, Tuple
 from models.jogador import Jogador
-from models.status_jogo import StatusJogo
 from models.semente import Semente   
 from models.status_jogo import EstadoPartida
 class Tabuleiro:
