@@ -1,3 +1,7 @@
 class Semente:
-    def __init__(self, tipo: int):
-        self.tipo = tipo  # 1 ou 2
+    """Representa uma semente individual no jogo"""
+    def __init__(self):
+        pass  # Uma semente é apenas uma semente, sem tipos
+    
+    def __repr__(self):
+        return "Semente()"

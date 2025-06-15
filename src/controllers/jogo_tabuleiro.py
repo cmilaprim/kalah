@@ -1,4 +1,5 @@
 import tkinter as tk
+from models.estado_partida import EstadoPartida
 from typing import Optional, Dict, Any
 from models.tabuleiro import Tabuleiro
 from views.interface_jogador import InterfaceJogador
@@ -12,7 +13,6 @@ class JogoTabuleiro:
         self.jogador_remoto_id = None
         self.minha_vez = False
         self.partida_iniciada = False
-        self.dog_interface = None
         
         # Estado inicial do tabuleiro
         self.interface.receber_jogada(
@@ -32,12 +32,7 @@ class JogoTabuleiro:
         self.minha_vez = (str(primeiro_jogador_id) == str(jogador_local_id))
         
         self.partida_iniciada = True
-        self.modelo = Tabuleiro()
         self.interface.game_started = True
-        
-        # Configura a referência do dog_interface
-        if hasattr(self.interface, 'dog_server_interface'):
-            self.dog_interface = self.interface.dog_server_interface
         
         # Atualiza a interface
         self.interface.receber_jogada(
@@ -49,6 +44,20 @@ class JogoTabuleiro:
         
         jogador_texto = "sua" if self.minha_vez else "do oponente"
         self.interface.status_label.config(text=f"Partida iniciada! Vez: {jogador_texto}")
+
+    def desistir_partida(self) -> None:
+        """Desiste da partida atual"""
+        if self.partida_iniciada:
+            dados_desistencia = {
+                'casa_index': -2,
+                'match_status': 'withdrawal',
+                'player': self.jogador_local_id
+            }
+            # CORRETO: Pede para Interface enviar
+            self.interface.enviar_para_dog(dados_desistencia)
+                
+        self.partida_iniciada = False
+        self.interface.game_started = False
 
     def sincronizar_estado_inicial(self, primeiro_jogador_id: str) -> None:
         """Sincroniza o estado inicial quando recebe notificação do oponente"""
@@ -64,13 +73,9 @@ class JogoTabuleiro:
             estado_tabuleiro=self.modelo.estado_em_lista(),
             armazens=self.modelo.armazens_em_lista()
         )
-
-    def jogada_valida(self, casa_index: int) -> bool:
-        """Verifica se uma jogada é válida"""
-        return self.modelo.jogada_valida(casa_index)
     
     def realizar_jogada(self, casa_index: int) -> None:
-        """Realiza uma jogada local e envia para o oponente via Dog"""
+        """Realiza uma jogada local e envia para o oponente via Interface"""
         if not self.partida_iniciada:
             messagebox.showwarning("Atenção", "Partida não iniciada!")
             return
@@ -79,13 +84,11 @@ class JogoTabuleiro:
             messagebox.showwarning("Atenção", "Não é sua vez de jogar!")
             return
             
-        if not self.jogada_valida(casa_index):
+        if not self.modelo.jogada_valida(casa_index):
             messagebox.showwarning("Atenção", "Jogada inválida!")
             return
         
         extra_turn = self.modelo.semear(casa_index)
-        
-        # Envia a jogada via Dog
         self.enviar_jogada_dog(casa_index)
         
         if self.modelo.jogo_terminou():
@@ -93,7 +96,6 @@ class JogoTabuleiro:
             self.finalizar_partida(vencedor)
             return
 
-        # Atualiza o turno
         if not extra_turn:
             self.minha_vez = False
             self.modelo.alternar_turno(extra_turn)
@@ -101,7 +103,6 @@ class JogoTabuleiro:
         else:
             jogador_texto = "sua (turno extra)"
             
-        # Atualiza a interface
         self.interface.status_label.config(text=f"Vez: {jogador_texto}")
         self.interface.receber_jogada(
             posicao=casa_index,
@@ -111,10 +112,7 @@ class JogoTabuleiro:
         )
         
     def enviar_jogada_dog(self, casa_index: int) -> None:
-        """Envia a jogada para o oponente via Dog"""
-        if not self.dog_interface:
-            return
-                
+        """Prepara dados e pede para Interface enviar via Dog"""
         dados_jogada = {
             'tipo': 'jogada',
             'casa_index': casa_index,
@@ -122,13 +120,10 @@ class JogoTabuleiro:
             'match_status': 'finished' if self.modelo.jogo_terminou() else 'next'
         }
         
-        try:
-            self.dog_interface.send_move(dados_jogada)
-        except Exception as e:
-            print(f"Erro ao enviar jogada: {e}")
+        self.interface.enviar_para_dog(dados_jogada)
     
     def receber_jogada_remota(self, dados_jogada: Dict[str, Any]) -> None:
-        """Recebe e processa uma jogada do oponente via Dog"""
+        """Recebe e processa uma jogada do oponente"""
         casa_index = dados_jogada.get('casa_index')
         
         # Executa a jogada
@@ -174,18 +169,31 @@ class JogoTabuleiro:
             ) else "Oponente"
             self.interface.informar_vencedor(nome_vencedor)
 
-    def desistir_partida(self) -> None:
-        """Desiste da partida atual"""
-        if self.partida_iniciada and self.dog_interface:
-            try:
-                dados_jogada = {
-                    'casa_index': -2,
-                    'match_status': 'withdrawal',
-                    'player': self.jogador_local_id
-                }
-                self.dog_interface.send_move(dados_jogada)
-            except Exception as e:
-                print(f"Erro ao notificar desistência: {e}")
-                
-        self.partida_iniciada = False
-        self.interface.game_started = False
+    
+    def tentar_jogada(self, casa_index: int) -> dict:
+        """Tenta realizar uma jogada e retorna o resultado"""
+        status = self.modelo.obter_estado_partida()
+        
+        if status != EstadoPartida.EM_PROGRESSO:
+            return {
+                'sucesso': False,
+                'mensagem': 'Partida não está em progresso!'
+            }
+        
+        if not self.minha_vez:
+            return {
+                'sucesso': False,
+                'mensagem': 'Não é sua vez!'
+            }
+        
+        if not self.modelo.jogada_valida(casa_index):
+            return {
+                'sucesso': False,
+                'mensagem': 'Jogada inválida!'
+            }
+        
+        self.realizar_jogada(casa_index)
+        return {
+            'sucesso': True,
+            'mensagem': 'Jogada realizada com sucesso!'
+        }

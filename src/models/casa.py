@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 from models.semente import Semente
 
 class Casa:
@@ -6,22 +6,16 @@ class Casa:
     def __init__(self):
         self.sementes: List[Semente] = []
 
-    def adicionar_semente(self, tipo_semente: int, quantidade: int = 1) -> None:
-        """Adiciona sementes do tipo especificado na quantidade indicada"""
+    def adicionar_semente(self, quantidade: int = 1) -> None:
+        """Adiciona sementes na quantidade indicada"""
         for _ in range(quantidade):
-            self.sementes.append(Semente(tipo_semente))
+            self.sementes.append(Semente())
 
-    def retirar_todas(self) -> Dict[int, int]:
-        """Retorna um dicionário com contagem de sementes por tipo e esvazia a casa"""
-        sementes_por_tipo = {}
-        for semente in self.sementes:
-            tipo = semente.tipo
-            if tipo in sementes_por_tipo:
-                sementes_por_tipo[tipo] += 1
-            else:
-                sementes_por_tipo[tipo] = 1
+    def retirar_todas(self) -> List[Semente]:
+        """Retorna a lista de sementes e esvazia a casa"""
+        sementes = self.sementes.copy()
         self.sementes = []
-        return sementes_por_tipo
+        return sementes
 
     def contar(self) -> int:
         return len(self.sementes)

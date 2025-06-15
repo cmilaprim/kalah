@@ -1,13 +1,10 @@
 from typing import List, Optional, Tuple
 from models.jogador import Jogador
 from models.semente import Semente   
-from models.status_jogo import EstadoPartida
+from models.estado_partida import EstadoPartida
 class Tabuleiro:
     def __init__(self):
-        self.jogadores: List[Jogador] = [
-            Jogador(1),
-            Jogador(2)
-        ]
+        self.jogadores: List[Jogador] = [Jogador(1),Jogador(2)]
         self.partida_inciada = True
         self.inicializar_casas()
         self.jogador_atual: int = 1
@@ -15,15 +12,12 @@ class Tabuleiro:
     def inicializar_casas(self) -> None:
         for jogador in self.jogadores:
             for casa in jogador.casas:
-                # Adiciona 2 sementes de cada tipo
-                casa.adicionar_semente(1, 2)
-                casa.adicionar_semente(2, 2)
+                casa.adicionar_semente(4)
     
     def obter_estado_partida(self) -> EstadoPartida:
-        pass
-
-    def jogada_valida(self, casa_index: int) -> bool:
-        pass
+        if self.jogo_terminou():
+            return EstadoPartida.ENCERRADA
+        return EstadoPartida.EM_PROGRESSO
 
     def estado_em_lista(self) -> List[List[int]]:
         resultado = []
@@ -37,10 +31,20 @@ class Tabuleiro:
             [self.jogadores[0].armazem.contar()],  
             [self.jogadores[1].armazem.contar()]  
         ]
+
     def jogada_valida(self, casa_index: int) -> bool:
-        idx_jogador = 0 if self.jogador_atual == 1 else 1
-        idx_casa = casa_index if idx_jogador == 0 else casa_index - 6
-        return 0 <= idx_casa < 6 and not self.jogadores[idx_jogador].casas[idx_casa].esta_vazia()
+        if self.jogador_atual == 1:
+            # Jogador 1 só pode jogar em casas 0-5
+            if not (0 <= casa_index <= 5):
+                return False
+            return not self.jogadores[0].casas[casa_index].esta_vazia()
+        
+        else:  # jogador_atual == 2
+            # Jogador 2 só pode jogar em casas 6-11
+            if not (6 <= casa_index <= 11):
+                return False
+            idx_casa = casa_index - 6  # Converte para índice 0-5
+            return not self.jogadores[1].casas[idx_casa].esta_vazia()
     
     def semear(self, casa_index: int) -> bool:
         idx_jog, idx_casa = self.ajustar_indices(casa_index)
@@ -82,38 +86,18 @@ class Tabuleiro:
             if not (t == "store" and ij != idx_jog)
         ]
     
-    def get_caminho_semeadura(self) -> list[int]:
-        return [
-            ij * 6 + j
-            for (t, ij, j) in self.ultimo_caminho
-            if t == "pit"
-        ]
-    
-    def distribuir_sementes(self, path, sementes_dict) -> tuple[str,int,int]:
+    def distribuir_sementes(self, path, sementes_lista: List[Semente]) -> tuple[str,int,int]:
         última_pos = None
         k = 0
         
-        # Converter o dicionário em uma lista de sementes
-        sementes = []
-        for tipo, quantidade in sementes_dict.items():
-            for _ in range(quantidade):
-                sementes.append(Semente(tipo))
-        
-        # Total de sementes
-        total_sementes = len(sementes)
-        
-        while total_sementes > 0:
+        for semente in sementes_lista:
             tipo_lugar, idx_jog, j = path[k % len(path)]
             
-            # Pega a próxima semente da lista
-            semente = sementes.pop(0)
-            
             if tipo_lugar == "pit":
-                self.jogadores[idx_jog].casas[j].adicionar_semente(semente.tipo, 1)
-            else:  # store
-                self.jogadores[idx_jog].armazem.adicionar_semente(semente.tipo, 1)
+                self.jogadores[idx_jog].casas[j].adicionar_semente(1)
+            else:  
+                self.jogadores[idx_jog].armazem.adicionar_semente(1)
                 
-            total_sementes -= 1
             última_pos = (tipo_lugar, idx_jog, j)
             k += 1
             
@@ -128,10 +112,11 @@ class Tabuleiro:
             
             opp_idx = 1 - idx_jog
             sementes_oponente = self.jogadores[opp_idx].casas[j].retirar_todas()
-            # Adiciona as sementes capturadas ao armazém
-            for tipo_semente, quantidade in sementes_oponente.items():
-                if quantidade > 0:
-                    self.jogadores[idx_jog].armazem.adicionar_semente(tipo_semente, quantidade)
+            
+            if sementes_oponente:
+                self.jogadores[idx_jog].armazem.adicionar_sementes_lista(sementes_oponente)
+                semente_propria = self.jogadores[idx_jog].casas[j].retirar_todas()
+                self.jogadores[idx_jog].armazem.adicionar_sementes_lista(semente_propria)
             
     
     def finalizar_jogo(self) -> Optional[int]:
@@ -142,9 +127,8 @@ class Tabuleiro:
         for idx, jogador in enumerate(self.jogadores):
             for casa in jogador.casas:
                 sementes = casa.retirar_todas()
-                for tipo_semente, quantidade in sementes.items():
-                    if quantidade > 0:
-                        jogador.armazem.adicionar_semente(tipo_semente, quantidade)
+                if sementes:
+                    jogador.armazem.adicionar_sementes_lista(sementes)
             
         return self.obter_vencedor()
     

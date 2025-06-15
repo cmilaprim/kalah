@@ -84,7 +84,7 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             messagebox.showerror("Erro", "Conexão com servidor Dog não estabelecida.")
             return
             
-        start_status = self.dog_server_interface.start_match(2)  # 2 jogadores
+        start_status = self.dog_server_interface.start_match(2)
         message = start_status.get_message()
         messagebox.showinfo("Solicitação de Partida", message)
 
@@ -123,6 +123,13 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         except Exception as e:
             print(f"Erro ao processar início: {e}")
             messagebox.showwarning("Erro", f"Erro ao iniciar partida: {e}")
+    
+    def enviar_para_dog(self, dados):
+        """Envia dados para o servidor Dog"""
+        if hasattr(self, 'dog_server_interface') and self.dog_server_interface:
+            self.dog_server_interface.send_move(dados)
+        else:
+            print(f"Erro: Não foi possível enviar dados {dados} - conexão Dog indisponível")
 
     def enviar_sincronizacao_inicial(self, primeiro_jogador_id):
         """Envia mensagem de sincronização inicial"""
@@ -152,13 +159,26 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def click(self, event) -> None:
         if not self.game_started:
             return
+            
         item = self.canvas.find_closest(event.x, event.y)
         for tag in self.canvas.gettags(item):
             if tag.startswith("casa_"):
                 idx = int(tag.split("_", 1)[1])
-                if self.controlador.jogada_valida(idx):
-                    self.controlador.realizar_jogada(idx)
+                resultado = self.controlador.tentar_jogada(idx)
+                
+                if not resultado['sucesso']:
+                    self.mostrar_mensagem(resultado['mensagem'])
+                    self.atualizar_interface()
+                
                 return
+    
+    def mostrar_mensagem(self, msg: str) -> None:
+        """Mostra uma mensagem para o usuário"""
+        messagebox.showwarning("Atenção", msg)
+    
+    def atualizar_interface(self) -> None:
+        """Atualiza a interface do tabuleiro"""
+        self.desenhar_tabuleiro()
 
     def receive_move(self, move_data):
         """Recebe uma jogada do outro jogador via Dog"""
