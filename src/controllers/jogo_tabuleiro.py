@@ -88,14 +88,38 @@ class JogoTabuleiro:
             messagebox.showwarning("Atenção", "Jogada inválida!")
             return
         
+        # 1º PASSO: Executa a jogada completamente (semeadura + captura)
         extra_turn = self.modelo.semear(casa_index)
+        
+        # 2º PASSO: Atualiza a interface com o estado atual
+        self.interface.receber_jogada(
+            posicao=casa_index,
+            jogador=self.modelo.jogador_atual,
+            estado_tabuleiro=self.modelo.estado_em_lista(),
+            armazens=self.modelo.armazens_em_lista()
+        )
+        
+        # 3º PASSO: Envia a jogada para o oponente
         self.enviar_jogada_dog(casa_index)
         
+        # 4º PASSO: Verifica se o jogo terminou APÓS processar completamente a jogada
         if self.modelo.jogo_terminou():
+            # Finaliza o jogo (coleta sementes restantes)
             vencedor = self.modelo.finalizar_jogo()
+            
+            # Atualiza interface final
+            self.interface.receber_jogada(
+                posicao=-1,
+                jogador=self.modelo.jogador_atual,
+                estado_tabuleiro=self.modelo.estado_em_lista(),
+                armazens=self.modelo.armazens_em_lista()
+            )
+            
+            # Mostra resultado final
             self.finalizar_partida(vencedor)
             return
 
+        # 5º PASSO: Atualiza turnos se o jogo continua
         if not extra_turn:
             self.minha_vez = False
             self.modelo.alternar_turno(extra_turn)
@@ -104,20 +128,18 @@ class JogoTabuleiro:
             jogador_texto = "sua (turno extra)"
             
         self.interface.status_label.config(text=f"Vez: {jogador_texto}")
-        self.interface.receber_jogada(
-            posicao=casa_index,
-            jogador=self.modelo.jogador_atual,
-            estado_tabuleiro=self.modelo.estado_em_lista(),
-            armazens=self.modelo.armazens_em_lista()
-        )
+
         
     def enviar_jogada_dog(self, casa_index: int) -> None:
         """Prepara dados e pede para Interface enviar via Dog"""
+        # Verifica o estado APÓS a jogada ter sido processada
+        jogo_acabou = self.modelo.jogo_terminou()
+        
         dados_jogada = {
             'tipo': 'jogada',
             'casa_index': casa_index,
             'jogador': self.jogador_local_id,
-            'match_status': 'finished' if self.modelo.jogo_terminou() else 'next'
+            'match_status': 'finished' if jogo_acabou else 'next'
         }
         
         self.interface.enviar_para_dog(dados_jogada)
@@ -125,16 +147,29 @@ class JogoTabuleiro:
     def receber_jogada_remota(self, dados_jogada: Dict[str, Any]) -> None:
         """Recebe e processa uma jogada do oponente"""
         casa_index = dados_jogada.get('casa_index')
-        
-        # Executa a jogada
         extra_turn = self.modelo.semear(casa_index)
+        
+        self.interface.receber_jogada(
+            posicao=casa_index,
+            jogador=self.modelo.jogador_atual,
+            estado_tabuleiro=self.modelo.estado_em_lista(),
+            armazens=self.modelo.armazens_em_lista()
+        )
         
         if self.modelo.jogo_terminou():
             vencedor = self.modelo.finalizar_jogo()
+            
+            # Atualiza interface final
+            self.interface.receber_jogada(
+                posicao=-1,
+                jogador=self.modelo.jogador_atual,
+                estado_tabuleiro=self.modelo.estado_em_lista(),
+                armazens=self.modelo.armazens_em_lista()
+            )
+            
             self.finalizar_partida(vencedor)
             return
         
-        # Atualiza o turno
         if not extra_turn:
             self.minha_vez = True
             self.modelo.alternar_turno(extra_turn)
@@ -143,31 +178,34 @@ class JogoTabuleiro:
             self.minha_vez = False
             jogador_texto = "do oponente (turno extra)"
         
-        # Atualiza interface
         self.interface.status_label.config(text=f"Oponente jogou casa {casa_index}. Vez: {jogador_texto}")
-        self.interface.receber_jogada(
-            posicao=casa_index,
-            jogador=self.modelo.jogador_atual,
-            estado_tabuleiro=self.modelo.estado_em_lista(),
-            armazens=self.modelo.armazens_em_lista()
-        )
     
     def jogo_terminou(self) -> bool:
         """Verifica se o jogo terminou"""
         return self.modelo.jogo_terminou()
 
     def finalizar_partida(self, vencedor) -> None:
-        """Finaliza a partida e informa o resultado"""
+        """Finaliza a partida e informa o resultado com contagem detalhada"""
         self.partida_iniciada = False
         
+        sementes_j1 = self.modelo.jogadores[0].armazem.contar()
+        sementes_j2 = self.modelo.jogadores[1].armazem.contar()
+        
         if vencedor is None:
-            self.interface.informar_empate()
+            self.interface.informar_empate(sementes_j1, sementes_j2)
         else:
-            nome_vencedor = "Você" if (
-                (vencedor == 1 and str(self.jogador_local_id) == '1') or 
-                (vencedor == 2 and str(self.jogador_local_id) == '2')
-            ) else "Oponente"
-            self.interface.informar_vencedor(nome_vencedor)
+            eh_jogador_1 = (str(self.primeiro_jogador_id) == str(self.jogador_local_id))
+            
+            if eh_jogador_1:
+                nome_vencedor = "Você" if vencedor == 1 else "Oponente"
+                suas_sementes = sementes_j1
+                sementes_oponente = sementes_j2
+            else:
+                nome_vencedor = "Você" if vencedor == 2 else "Oponente"
+                suas_sementes = sementes_j2
+                sementes_oponente = sementes_j1
+                
+            self.interface.informar_vencedor(nome_vencedor, suas_sementes, sementes_oponente)
 
     
     def tentar_jogada(self, casa_index: int) -> dict:

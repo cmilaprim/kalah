@@ -16,10 +16,11 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.master = master
         self.controlador = controlador
         self.game_started = False
-        self.tabuleiro_width = 1300
-        self.tabuleiro_height = 650
+        self.tabuleiro_width = 1000
+        self.tabuleiro_height = 550
         self.raio_casas = self.tabuleiro_width * 0.06
         self.espaco_centro_casas = self.tabuleiro_width * 0.13
+        
         
         self.estado_tabuleiro: List[List[int]] = []
         self.armazens: List[List[int]] = []
@@ -47,7 +48,18 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def inicializar_janela(self) -> None:
         self.master.configure(bg='#F7F3E8')
         self.master.title("Tabuleiro de Kalah")
-        self.master.geometry("1340x800")
+        
+        largura_janela = 1100
+        altura_janela = 700
+        
+        largura_tela = self.master.winfo_screenwidth()
+        altura_tela = self.master.winfo_screenheight()
+        
+        pos_x = (largura_tela // 2) - (largura_janela // 2)
+        pos_y = (altura_tela // 2) - (altura_janela // 2)
+        
+        self.master.geometry(f"{largura_janela}x{altura_janela}+{pos_x}+{pos_y}")
+        
         self.pack(fill=tk.BOTH, expand=True)
         self.create_menu()
 
@@ -59,14 +71,14 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         
     def criar_canvas(self) -> None:
         self.canvas = tk.Canvas(self, width=self.tabuleiro_width, height=self.tabuleiro_height, bg=self.cores['tabuleiro'], highlightthickness=0)
-        self.canvas.pack(padx=20, pady=20)
+        self.canvas.pack(padx=20, pady=(20, 10))
         self.canvas.bind("<Button-1>", self.click)
 
     def criar_botao_desistir(self) -> None:
         self.frame_botao = tk.Frame(self, bg=self.cores['fundo'])
-        self.frame_botao.pack(fill=tk.X, pady=10)
-        self.btn_desistir = tk.Button(self.frame_botao, text="DESISTIR", font=("Helvetica", 16, "bold"), bg=self.cores['botao_desistir'], fg=self.cores['texto_botoes'], command=self.desistir, width=15, padx=20, pady=5)
-        self.btn_desistir.pack(pady=5)
+        self.frame_botao.pack(fill=tk.X, pady=(10, 20))
+        self.btn_desistir = tk.Button(self.frame_botao, text="DESISTIR", font=("Helvetica", 14, "bold"), bg=self.cores['botao_desistir'], fg=self.cores['texto_botoes'], command=self.desistir, width=12, padx=12, pady=5)
+        self.btn_desistir.pack(anchor='center')
 
     def create_menu(self) -> None:
         menu_bar = tk.Menu(self.master)
@@ -284,16 +296,39 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.canvas.create_text(cx, (y_topo + y_base)/2, text=str(self.armazens[1][0]), font=("Helvetica", 16, "bold"), fill=self.cores['texto_botoes'])
         self.canvas.create_text(cx, y_base + 20, text="Armazém J2", font=("Helvetica", 12), fill=self.cores['texto_botoes'])
 
-    def informar_vencedor(self, vencedor: str) -> None:
-        """Informa o vencedor da partida"""
-        messagebox.showinfo("Fim de Jogo", f"O vencedor é {vencedor}!")
-        self.game_started = False
-        self.status_label.config(text=f"Partida finalizada - Vencedor: {vencedor}")
+    def informar_vencedor(self, vencedor: str, suas_sementes: int, sementes_oponente: int) -> None:
+        """Informa o vencedor da partida com delay para mostrar estado final"""
+        def mostrar_resultado():
+            mensagem = (f"PARTIDA FINALIZADAs\n\n"
+                    f"Vencedor: {vencedor}!\n\n"
+                    f"CONTAGEM FINAL:\n"
+                    f"•Suas sementes: {suas_sementes}\n"
+                    f"•Sementes do oponente: {sementes_oponente}")
+            
+            messagebox.showinfo("Fim de Jogo", mensagem)
+            self.game_started = False
+            self.status_label.config(text=f"Partida finalizada - Vencedor: {vencedor}")
         
-    def informar_empate(self) -> None:
-        messagebox.showinfo("Fim de Jogo", "Empate! Ambos têm o mesmo número de sementes.")
-        self.game_started = False
-        self.status_label.config(text="Partida finalizada - Empate")
+        # Aguarda 1 segundo para mostrar o resultado (tempo para ver o estado final)
+        self.master.after(1000, mostrar_resultado)
+        
+        
+    def informar_empate(self, sementes_j1: int, sementes_j2: int) -> None:
+        """Informa empate com delay para mostrar estado final"""
+        def mostrar_resultado():
+            mensagem = (f"PARTIDA FINALIZADA\n\n"
+                    f"EMPATE!\n\n"
+                    f"CONTAGEM FINAL:\n"
+                    f"•Jogador 1: {sementes_j1} sementes\n"
+                    f"•Jogador 2: {sementes_j2} sementes\n\n"
+                    f"Ambos têm o mesmo número de sementes!")
+            
+            messagebox.showinfo("Fim de Jogo", mensagem)
+            self.game_started = False
+            self.status_label.config(text="Partida finalizada - Empate")
+        
+        self.master.after(1000, mostrar_resultado)
+
 
     def desistir(self):
         """Desiste da partida atual"""
