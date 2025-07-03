@@ -16,10 +16,10 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.master = master
         self.controlador = controlador
         self.game_started = False
-        self.tabuleiro_width = 1000
-        self.tabuleiro_height = 550
-        self.raio_casas = self.tabuleiro_width * 0.06
-        self.espaco_centro_casas = self.tabuleiro_width * 0.13
+        self.tabuleiro_width = 700  
+        self.tabuleiro_height = 400  
+        self.raio_casas = self.tabuleiro_width * 0.055  
+        self.espaco_centro_casas = self.tabuleiro_width * 0.12 
         
         
         self.estado_tabuleiro: List[List[int]] = []
@@ -40,17 +40,17 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.criar_canvas()
         self.criar_botao_desistir()
 
-        player_name = simpledialog.askstring(title="Player Identification", prompt="Qual o seu nome?")
+        player_name = simpledialog.askstring(title="Player Identification", prompt="Qual o seu nome?", parent=self.master)
         self.dog_server_interface = DogActor()
         message = self.dog_server_interface.initialize(player_name, self)
-        messagebox.showinfo(message=message)
+        messagebox.showinfo("Conexão Dog", message, parent=self.master)
 
     def inicializar_janela(self) -> None:
         self.master.configure(bg='#F7F3E8')
         self.master.title("Tabuleiro de Kalah")
         
-        largura_janela = 1100
-        altura_janela = 700
+        largura_janela = 800  # Reduzido de 1100 para 800
+        altura_janela = 550   # Reduzido de 700 para 550
         
         largura_tela = self.master.winfo_screenwidth()
         altura_tela = self.master.winfo_screenheight()
@@ -93,12 +93,12 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def start_match(self):
         """Inicia uma partida usando o sistema Dog"""
         if not hasattr(self, 'dog_server_interface'):
-            messagebox.showerror("Erro", "Conexão com servidor Dog não estabelecida.")
+            messagebox.showerror("Erro", "Conexão com servidor Dog não estabelecida.", parent=self.master)
             return
             
         start_status = self.dog_server_interface.start_match(2)
         message = start_status.get_message()
-        messagebox.showinfo("Solicitação de Partida", message)
+        messagebox.showinfo("Solicitação de Partida", message, parent=self.master)
 
     def receive_start(self, start_status):
         """Recebe a notificação de início de partida do Dog"""
@@ -130,11 +130,19 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             self.master.after(2000, lambda: self.enviar_sincronizacao_inicial(primeiro_jogador_id))
             
             comeca = "Você começa!" if primeiro_jogador_id == str(jogador_local_id) else "Oponente começa!"
-            messagebox.showinfo("Partida Iniciada", f"{message}\n\n{comeca}")
+            
+            # Força a janela principal para frente antes de mostrar o diálogo
+            self.master.focus_force()
+            self.master.lift()
+            self.master.update_idletasks()
+            messagebox.showinfo("Partida Iniciada", f"{message}\n\n{comeca}", parent=self.master)
+            # Força o foco na janela principal após o diálogo
+            self.master.focus_force()
+            self.master.lift()
             
         except Exception as e:
             print(f"Erro ao processar início: {e}")
-            messagebox.showwarning("Erro", f"Erro ao iniciar partida: {e}")
+            messagebox.showwarning("Erro", f"Erro ao iniciar partida: {e}", parent=self.master)
     
     def enviar_para_dog(self, dados):
         """Envia dados para o servidor Dog"""
@@ -163,7 +171,15 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                 self.controlador.iniciar_partida(meu_id, oponente_id, primeiro_jogador)
                 
                 comeca = "Você começa!" if primeiro_jogador == meu_id else "Oponente começa!"
-                messagebox.showinfo("Partida Iniciada", f"Partida sincronizada!\n\n{comeca}")
+                
+                # Força a janela principal para frente antes de mostrar o diálogo
+                self.master.focus_force()
+                self.master.lift()
+                self.master.update_idletasks()
+                messagebox.showinfo("Partida Iniciada", f"Partida sincronizada!\n\n{comeca}", parent=self.master)
+                # Força o foco na janela principal após o diálogo
+                self.master.focus_force()
+                self.master.lift()
                 
         except Exception as e:
             print(f"Erro na configuração via sync: {e}")
@@ -171,22 +187,48 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def click(self, event) -> None:
         if not self.game_started:
             return
+        
+        # Previne duplo clique desabilitando temporariamente os cliques
+        if hasattr(self, '_processando_clique') and self._processando_clique:
+            return
             
         item = self.canvas.find_closest(event.x, event.y)
         for tag in self.canvas.gettags(item):
             if tag.startswith("casa_"):
                 idx = int(tag.split("_", 1)[1])
-                resultado = self.controlador.tentar_jogada(idx)
                 
-                if not resultado['sucesso']:
-                    self.mostrar_mensagem(resultado['mensagem'])
-                    self.atualizar_interface()
+                # Marca que está processando clique
+                self._processando_clique = True
                 
+                # Processa jogada diretamente (integrado do _processar_jogada_async)
+                def processar_jogada():
+                    try:
+                        resultado = self.controlador.tentar_jogada(idx)
+                        
+                        if not resultado['sucesso']:
+                            # Mostra mensagem no status (integrado do _mostrar_mensagem_async)
+                            self.status_label.config(text=f"{resultado['mensagem']}")
+                            # Volta ao texto normal após 2 segundos (integrado do _restaurar_status)
+                            def restaurar_status():
+                                if hasattr(self.controlador, 'minha_vez') and self.controlador.partida_iniciada:
+                                    jogador_texto = "sua" if self.controlador.minha_vez else "do oponente"
+                                    self.status_label.config(text=f"Vez: {jogador_texto}")
+                                else:
+                                    self.status_label.config(text="Aguardando...")
+                            self.master.after(2000, restaurar_status)
+                            self.atualizar_interface()
+                    finally:
+                        # Reabilita cliques após um pequeno delay (integrado do _habilitar_cliques)
+                        def habilitar_cliques():
+                            self._processando_clique = False
+                        self.master.after(100, habilitar_cliques)
+                
+                self.master.after(10, processar_jogada)
                 return
     
     def mostrar_mensagem(self, msg: str) -> None:
         """Mostra uma mensagem para o usuário"""
-        messagebox.showwarning("Atenção", msg)
+        messagebox.showwarning("Atenção", msg, parent=self.master)
     
     def atualizar_interface(self) -> None:
         """Atualiza a interface do tabuleiro"""
@@ -222,7 +264,7 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             casa_index = move_data.get('casa_index')
             if casa_index == -2:  # Desistência
                 self.game_started = False
-                messagebox.showinfo("Desistência", "O oponente desistiu. Você venceu!")
+                messagebox.showinfo("Desistência", "O oponente desistiu. Você venceu!", parent=self.master)
                 return
                 
         except Exception as e:
@@ -231,7 +273,7 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def receive_withdrawal_notification(self):
         """Recebe notificação que o oponente abandonou a partida"""
         self.game_started = False
-        messagebox.showinfo("Partida Encerrada", "O oponente abandonou a partida. Você venceu!")
+        messagebox.showinfo("Partida Encerrada", "O oponente abandonou a partida. Você venceu!", parent=self.master)
         self.status_label.config(text="Partida finalizada - Oponente desistiu")
 
     def receber_jogada(self, posicao: int, jogador: int, estado_tabuleiro: List[List[int]], armazens: List[List[int]]) -> None:
@@ -252,8 +294,8 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         y_topo = self.tabuleiro_height * (1 - prop) / 2
         y_base = self.tabuleiro_height * (1 + prop) / 2
 
-        self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.02, text="Casas do jogador 1", font=("Helvetica", 14), fill=self.cores['texto_botoes'])
-        self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.98, text="Casas do jogador 2", font=("Helvetica", 14), fill=self.cores['texto_botoes'])
+        self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.02, text="Casas do jogador 1", font=("Helvetica", 12), fill=self.cores['texto_botoes'])
+        self.canvas.create_text(self.tabuleiro_width/2, self.tabuleiro_height*0.98, text="Casas do jogador 2", font=("Helvetica", 12), fill=self.cores['texto_botoes'])
 
         x_start = (self.tabuleiro_width - 5*self.espaco_centro_casas)/2
 
@@ -269,7 +311,7 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             quantidade = quantidade_lista[0] 
             
             if quantidade > 0:
-                seed_r = 10
+                seed_r = 8  # Reduzido de 10 para 8
                 sementes_para_mostrar = min(quantidade, 12)
                 
                 for i in range(sementes_para_mostrar):
@@ -278,34 +320,34 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                     ry = y + self.raio_casas*0.45*math.sin(ang)
                     self.canvas.create_oval(rx-seed_r, ry-seed_r, rx+seed_r, ry+seed_r, fill=self.cores['sementes'], outline="")
                     
-            self.canvas.create_text(x, y, text=str(quantidade), font=("Helvetica", 14, "bold"), fill=self.cores['texto_botoes'])
+            self.canvas.create_text(x, y, text=str(quantidade), font=("Helvetica", 12, "bold"), fill=self.cores['texto_botoes'])
 
         # Armazém J1 (esquerda)
-        self.canvas.create_rectangle(20, y_topo, 100, y_base, fill=self.cores['casas'], outline=self.cores['borda_tabuleiro'], width=3)
-        self.canvas.create_text(60, (y_topo + y_base)/2, text=str(self.armazens[0][0]), font=("Helvetica", 16, "bold"), fill=self.cores['texto_botoes'])
-        self.canvas.create_text(60, y_base + 20, text="Armazém J1", font=("Helvetica", 12), fill=self.cores['texto_botoes'])
+        self.canvas.create_rectangle(15, y_topo, 80, y_base, fill=self.cores['casas'], outline=self.cores['borda_tabuleiro'], width=3)
+        self.canvas.create_text(47.5, (y_topo + y_base)/2, text=str(self.armazens[0][0]), font=("Helvetica", 14, "bold"), fill=self.cores['texto_botoes'])
+        self.canvas.create_text(47.5, y_base + 15, text="Armazém J1", font=("Helvetica", 10), fill=self.cores['texto_botoes'])
 
         # Armazém J2 (direita)
-        warehouse_width = 80
-        warehouse_margin = 20
+        warehouse_width = 65  
+        warehouse_margin = 15 
         x2 = self.tabuleiro_width - warehouse_margin
         x1 = x2 - warehouse_width
 
         self.canvas.create_rectangle(x1, y_topo, x2, y_base, fill=self.cores['casas'], outline=self.cores['borda_tabuleiro'], width=3)
         cx = (x1 + x2)/2
-        self.canvas.create_text(cx, (y_topo + y_base)/2, text=str(self.armazens[1][0]), font=("Helvetica", 16, "bold"), fill=self.cores['texto_botoes'])
-        self.canvas.create_text(cx, y_base + 20, text="Armazém J2", font=("Helvetica", 12), fill=self.cores['texto_botoes'])
+        self.canvas.create_text(cx, (y_topo + y_base)/2, text=str(self.armazens[1][0]), font=("Helvetica", 14, "bold"), fill=self.cores['texto_botoes'])
+        self.canvas.create_text(cx, y_base + 15, text="Armazém J2", font=("Helvetica", 10), fill=self.cores['texto_botoes'])
 
     def informar_vencedor(self, vencedor: str, suas_sementes: int, sementes_oponente: int) -> None:
         """Informa o vencedor da partida com delay para mostrar estado final"""
         def mostrar_resultado():
-            mensagem = (f"PARTIDA FINALIZADAs\n\n"
+            mensagem = (f"PARTIDA FINALIZADA\n\n"
                     f"Vencedor: {vencedor}!\n\n"
                     f"CONTAGEM FINAL:\n"
                     f"•Suas sementes: {suas_sementes}\n"
                     f"•Sementes do oponente: {sementes_oponente}")
             
-            messagebox.showinfo("Fim de Jogo", mensagem)
+            messagebox.showinfo("Fim de Jogo", mensagem, parent=self.master)
             self.game_started = False
             self.status_label.config(text=f"Partida finalizada - Vencedor: {vencedor}")
         
@@ -323,7 +365,7 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                     f"•Jogador 2: {sementes_j2} sementes\n\n"
                     f"Ambos têm o mesmo número de sementes!")
             
-            messagebox.showinfo("Fim de Jogo", mensagem)
+            messagebox.showinfo("Fim de Jogo", mensagem, parent=self.master)
             self.game_started = False
             self.status_label.config(text="Partida finalizada - Empate")
         
@@ -333,15 +375,15 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def desistir(self):
         """Desiste da partida atual"""
         if not self.game_started:
-            messagebox.showinfo("Atenção", "Nenhuma partida em andamento.")
+            messagebox.showinfo("Atenção", "Nenhuma partida em andamento.", parent=self.master)
             return
         
-        resposta = messagebox.askyesno("Confirmar Desistência", "Tem certeza que deseja desistir da partida?")
+        resposta = messagebox.askyesno("Confirmar Desistência", "Tem certeza que deseja desistir da partida?", parent=self.master)
         
         if resposta:
             if hasattr(self.controlador, 'desistir_partida'):
                 self.controlador.desistir_partida()
-            messagebox.showinfo("Desistência", "Você desistiu da partida.")
+            messagebox.showinfo("Desistência", "Você desistiu da partida.", parent=self.master)
 
     def mostrar_regras(self) -> None:
         regras = (
@@ -354,4 +396,4 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             "6. Termina quando um lado esvaziar.\n"
             "7. Quem tiver mais sementes vence."
         )
-        messagebox.showinfo("Regras do Jogo", regras)
+        messagebox.showinfo("Regras do Jogo", regras, parent=self.master)
