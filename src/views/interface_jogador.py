@@ -97,7 +97,7 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         menu_opcoes = tk.Menu(menu_bar, tearoff=0)
         menu_opcoes.add_command(label="Iniciar Partida", command=self.start_match)
         menu_opcoes.add_separator()
-        menu_opcoes.add_command(label="Reiniciar Tabuleiro", command=self.reiniciar_jogo_menu)
+        menu_opcoes.add_command(label="Reiniciar Jogo", command=self.reiniciar_jogo_menu)
         menu_opcoes.add_separator()
         menu_opcoes.add_command(label="Regras do Jogo", command=self.mostrar_regras)
         menu_opcoes.add_separator()
@@ -484,8 +484,8 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.master.lift()
         
         resposta = messagebox.askyesno(
-            "Reiniciar Tabuleiro", 
-            "Tem certeza que deseja reiniciar o tabuleiro?\n\n"
+            "Reiniciar Jogo", 
+            "Tem certeza que deseja reiniciar o jogo?\n\n"
             "O tabuleiro voltará ao estado inicial (4 sementes por casa).\n"
             "Para jogar novamente, use 'Menu → Iniciar Partida'.\n\n"
             "Continuar?", 
@@ -500,11 +500,11 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             
             if sucesso:
                 messagebox.showinfo(
-                    "Tabuleiro Reiniciado", 
-                    "Tabuleiro reiniciado com sucesso!\n\n"
+                    "Jogo Reiniciado", 
+                    "Jogo reiniciado com sucesso!\n\n"
                     "Estado inicial restaurado.\n"
                     "Use 'Menu → Iniciar Partida' para uma nova partida.", 
                     parent=self.master
                 )
             else:
-                messagebox.showerror("Erro", "Não foi possível reiniciar o tabuleiro.", parent=self.master)
+                messagebox.showerror("Erro", "Não foi possível reiniciar o jogo.", parent=self.master)
