@@ -47,17 +47,34 @@ class JogoTabuleiro:
 
     def desistir_partida(self) -> None:
         """Desiste da partida atual"""
-        if self.partida_iniciada:
+        if not self.partida_iniciada:
+            return False
+            
+        try:
+            # Dados de desistência conforme protocolo DOG
             dados_desistencia = {
-                'casa_index': -2,
-                'match_status': 'withdrawal',
-                'player': self.jogador_local_id
+                'casa_index': -2,  # Código especial para desistência
+                'match_status': 'withdrawal',  # Status que o DOG reconhece
+                'player': self.jogador_local_id,
+                'jogador': self.jogador_local_id  # Redundância para garantir
             }
-            # CORRETO: Pede para Interface enviar
+            
+            # Envia para o servidor DOG
             self.interface.enviar_para_dog(dados_desistencia)
-                
-        self.partida_iniciada = False
-        self.interface.game_started = False
+            
+            # Atualiza estado local imediatamente
+            self.partida_iniciada = False
+            self.interface.game_started = False
+            self.minha_vez = False
+            
+            # Atualiza interface
+            self.interface.status_label.config(text="Você desistiu da partida")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao desistir: {e}")
+            return False
 
     def sincronizar_estado_inicial(self, primeiro_jogador_id: str) -> None:
         """Sincroniza o estado inicial quando recebe notificação do oponente"""
@@ -82,7 +99,7 @@ class JogoTabuleiro:
         self.interface.status_label.config(text="Processando jogada...")
         
         # 2º PASSO: Executa a jogada completamente (semeadura + captura)
-        extra_turn = self.modelo.semear(casa_index)
+        extra_turno = self.modelo.semear(casa_index)
         
         # 3º PASSO: Atualiza a interface com o estado atual IMEDIATAMENTE
         self.interface.receber_jogada(
@@ -117,9 +134,9 @@ class JogoTabuleiro:
                 return
 
             # Se o jogo continua, atualiza turnos
-            if not extra_turn:
+            if not extra_turno:
                 self.minha_vez = False
-                self.modelo.alternar_turno(extra_turn)
+                self.modelo.alternar_turno(extra_turno)
                 jogador_texto = "do oponente"
             else:
                 jogador_texto = "sua (turno extra)"
@@ -145,7 +162,7 @@ class JogoTabuleiro:
     def receber_jogada_remota(self, dados_jogada: Dict[str, Any]) -> None:
         """Recebe e processa uma jogada do oponente"""
         casa_index = dados_jogada.get('casa_index')
-        extra_turn = self.modelo.semear(casa_index)
+        extra_turno = self.modelo.semear(casa_index)
         
         self.interface.receber_jogada(
             posicao=casa_index,
@@ -174,9 +191,9 @@ class JogoTabuleiro:
                 return
             
             # Atualiza turnos normalmente
-            if not extra_turn:
+            if not extra_turno:
                 self.minha_vez = True
-                self.modelo.alternar_turno(extra_turn)
+                self.modelo.alternar_turno(extra_turno)
                 jogador_texto = "sua"
             else:
                 self.minha_vez = False
@@ -193,6 +210,7 @@ class JogoTabuleiro:
     def finalizar_partida(self, vencedor) -> None:
         """Finaliza a partida e informa o resultado com contagem detalhada"""
         self.partida_iniciada = False
+        self.interface.game_started = False
         
         sementes_j1 = self.modelo.jogadores[0].armazem.contar()
         sementes_j2 = self.modelo.jogadores[1].armazem.contar()
@@ -241,3 +259,37 @@ class JogoTabuleiro:
             'sucesso': True,
             'mensagem': 'Jogada realizada com sucesso!'
         }
+    
+    def reiniciar_jogo(self) -> bool:
+        """Reinicia apenas o tabuleiro para o estado inicial - reset simples"""
+        
+        # BLOQUEIO: Não permite reiniciar durante partida em andamento
+        if self.partida_iniciada:
+            return False  # Indica que não foi possível reiniciar
+        
+        # Reset COMPLETO - volta ao estado inicial
+        self.modelo = Tabuleiro()
+        
+        # Reset das variáveis de controle
+        self.jogador_local_id = None
+        self.jogador_remoto_id = None
+        self.primeiro_jogador_id = None
+        self.minha_vez = False
+        self.partida_iniciada = False
+        
+        # Reset da interface
+        self.interface.game_started = False
+        
+        # Atualiza interface para estado inicial
+        self.interface.receber_jogada(
+            posicao=-1, 
+            jogador=self.modelo.jogador_atual,
+            estado_tabuleiro=self.modelo.estado_em_lista(), 
+            armazens=self.modelo.armazens_em_lista()
+        )
+        
+        # Atualiza status
+        self.interface.status_label.config(text="Tabuleiro reiniciado - Use o menu para iniciar nova partida")
+        
+        print("Tabuleiro reiniciado com sucesso!")
+        return True  # Indica sucesso

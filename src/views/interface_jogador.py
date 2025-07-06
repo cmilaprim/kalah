@@ -77,21 +77,75 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
     def criar_botao_desistir(self) -> None:
         self.frame_botao = tk.Frame(self, bg=self.cores['fundo'])
         self.frame_botao.pack(fill=tk.X, pady=(10, 20))
-        self.btn_desistir = tk.Button(self.frame_botao, text="DESISTIR", font=("Helvetica", 14, "bold"), bg=self.cores['botao_desistir'], fg=self.cores['texto_botoes'], command=self.desistir, width=12, padx=12, pady=5)
+        
+        # Botão Desistir
+        self.btn_desistir = tk.Button(
+            self.frame_botao, 
+            text="DESISTIR", 
+            font=("Helvetica", 14, "bold"), 
+            bg=self.cores['botao_desistir'], 
+            fg=self.cores['texto_botoes'], 
+            command=self.desistir, 
+            width=12, 
+            padx=12, 
+            pady=5
+        )
         self.btn_desistir.pack(anchor='center')
+        
+        # Botão Reiniciar (inicialmente oculto)
+        self.btn_reiniciar = tk.Button(
+            self.frame_botao,
+            text="REINICIAR TABULEIRO",
+            font=("Helvetica", 14, "bold"),
+            bg="#006400",  # Verde escuro
+            fg=self.cores['texto_botoes'],
+            command=self.reiniciar_jogo,
+            width=18,
+            padx=12,
+            pady=5
+        )
+        # Não faz pack() ainda - será mostrado apenas quando o jogo terminar
 
     def create_menu(self) -> None:
         menu_bar = tk.Menu(self.master)
         menu_opcoes = tk.Menu(menu_bar, tearoff=0)
         menu_opcoes.add_command(label="Iniciar Partida", command=self.start_match)
+        menu_opcoes.add_separator()
+        menu_opcoes.add_command(label="Reiniciar Tabuleiro", command=self.reiniciar_jogo_menu)
+        menu_opcoes.add_separator()
         menu_opcoes.add_command(label="Regras do Jogo", command=self.mostrar_regras)
         menu_opcoes.add_separator()
         menu_opcoes.add_command(label="Sair", command=self.master.quit)
         menu_bar.add_cascade(label="Menu", menu=menu_opcoes)
         self.master.config(menu=menu_bar)
 
+    def reiniciar_jogo_menu(self):
+        """Método específico para reiniciar via menu"""
+        # Chama diretamente o método normal
+        self.reiniciar_jogo()
+
     def start_match(self):
         """Inicia uma partida usando o sistema Dog"""
+        # Verifica se já há uma partida em andamento
+        if (hasattr(self.controlador, 'partida_iniciada') and 
+            self.controlador.partida_iniciada and 
+            self.game_started):
+            
+            # Garante que a janela principal está em foco
+            self.master.focus_force()
+            self.master.lift()
+            
+            messagebox.showwarning(
+                "Partida em Andamento", 
+                "Já existe uma partida em andamento!\n\n"
+                "Para iniciar uma nova partida:\n"
+                "• Termine a partida atual jogando\n"
+                "• Ou use o botão 'DESISTIR' para encerrar\n\n"
+                "Não é possível iniciar múltiplas partidas.", 
+                parent=self.master
+            )
+            return
+        
         if not hasattr(self, 'dog_server_interface'):
             messagebox.showerror("Erro", "Conexão com servidor Dog não estabelecida.", parent=self.master)
             return
@@ -125,6 +179,9 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             # Configura a partida
             self.game_started = True
             self.controlador.iniciar_partida(str(jogador_local_id), jogador_remoto_id, primeiro_jogador_id)
+            
+            # Esconde botão de reiniciar e mostra o de desistir
+            self.esconder_botao_reiniciar()
             
             # Envia sincronização inicial
             self.master.after(2000, lambda: self.enviar_sincronizacao_inicial(primeiro_jogador_id))
@@ -262,19 +319,35 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             
             # Comandos especiais
             casa_index = move_data.get('casa_index')
-            if casa_index == -2:  # Desistência
-                self.game_started = False
-                messagebox.showinfo("Desistência", "O oponente desistiu. Você venceu!", parent=self.master)
+            match_status = move_data.get('match_status')
+            
+            # Tratar desistência via casa_index especial
+            if casa_index == -2 or match_status == 'withdrawal':
+                self.processar_desistencia_oponente()
+                return
+                
+            # Tratar interrupção (desistência detectada pelo servidor)
+            if match_status == 'interrupted':
+                self.processar_desistencia_oponente()
                 return
                 
         except Exception as e:
             print(f"Erro ao processar movimento: {e}")
 
+    def processar_desistencia_oponente(self):
+        """Processa desistência do oponente"""
+        self.game_started = False
+        self.controlador.partida_iniciada = False
+        self.status_label.config(text="Oponente desistiu - Você venceu!")
+        
+        # Mostra botão de reiniciar
+        self.mostrar_botao_reiniciar()
+        
+        messagebox.showinfo("Vitória!", "O oponente desistiu da partida.\nVocê venceu!", parent=self.master)
+
     def receive_withdrawal_notification(self):
         """Recebe notificação que o oponente abandonou a partida"""
-        self.game_started = False
-        messagebox.showinfo("Partida Encerrada", "O oponente abandonou a partida. Você venceu!", parent=self.master)
-        self.status_label.config(text="Partida finalizada - Oponente desistiu")
+        self.processar_desistencia_oponente()
 
     def receber_jogada(self, posicao: int, jogador: int, estado_tabuleiro: List[List[int]], armazens: List[List[int]]) -> None:
         """Atualiza a interface após uma jogada"""
@@ -347,9 +420,16 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                     f"•Suas sementes: {suas_sementes}\n"
                     f"•Sementes do oponente: {sementes_oponente}")
             
+            # Garante que a janela principal está em foco
+            self.master.focus_force()
+            self.master.lift()
+            
             messagebox.showinfo("Fim de Jogo", mensagem, parent=self.master)
             self.game_started = False
             self.status_label.config(text=f"Partida finalizada - Vencedor: {vencedor}")
+            
+            # Mostra botão de reiniciar
+            self.mostrar_botao_reiniciar()
         
         # Aguarda 1 segundo para mostrar o resultado (tempo para ver o estado final)
         self.master.after(1000, mostrar_resultado)
@@ -365,12 +445,18 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                     f"•Jogador 2: {sementes_j2} sementes\n\n"
                     f"Ambos têm o mesmo número de sementes!")
             
+            # Garante que a janela principal está em foco
+            self.master.focus_force()
+            self.master.lift()
+            
             messagebox.showinfo("Fim de Jogo", mensagem, parent=self.master)
             self.game_started = False
             self.status_label.config(text="Partida finalizada - Empate")
+            
+            # Mostra botão de reiniciar
+            self.mostrar_botao_reiniciar()
         
         self.master.after(1000, mostrar_resultado)
-
 
     def desistir(self):
         """Desiste da partida atual"""
@@ -378,12 +464,29 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             messagebox.showinfo("Atenção", "Nenhuma partida em andamento.", parent=self.master)
             return
         
-        resposta = messagebox.askyesno("Confirmar Desistência", "Tem certeza que deseja desistir da partida?", parent=self.master)
+        # Garante que a janela principal está em foco
+        self.master.focus_force()
+        self.master.lift()
+        
+        resposta = messagebox.askyesno(
+            "Confirmar Desistência", 
+            "Tem certeza que deseja desistir da partida?\n\nIsso contará como derrota.", 
+            parent=self.master
+        )
         
         if resposta:
+            # Tenta desistir via controlador
+            sucesso = False
             if hasattr(self.controlador, 'desistir_partida'):
-                self.controlador.desistir_partida()
-            messagebox.showinfo("Desistência", "Você desistiu da partida.", parent=self.master)
+                sucesso = self.controlador.desistir_partida()
+            
+            if sucesso:
+                messagebox.showinfo("Desistência", "Você desistiu da partida.", parent=self.master)
+            else:
+                # Fallback - força finalização local se houver erro
+                self.game_started = False
+                self.status_label.config(text="Partida encerrada (desistência)")
+                messagebox.showwarning("Aviso", "Houve um problema ao comunicar a desistência, mas a partida foi encerrada localmente.", parent=self.master)
 
     def mostrar_regras(self) -> None:
         regras = (
@@ -397,3 +500,51 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             "7. Quem tiver mais sementes vence."
         )
         messagebox.showinfo("Regras do Jogo", regras, parent=self.master)
+
+    def reiniciar_jogo(self):
+        """Reinicia o tabuleiro para o estado inicial - reset simples"""
+        
+        # Mensagem de confirmação
+        # Garante que a janela principal está em foco
+        self.master.focus_force()
+        self.master.lift()
+        
+        resposta = messagebox.askyesno(
+            "Reiniciar Tabuleiro", 
+            "Tem certeza que deseja reiniciar o tabuleiro?\n\n"
+            "O tabuleiro voltará ao estado inicial (4 sementes por casa).\n"
+            "Para jogar novamente, use 'Menu → Iniciar Partida'.\n\n"
+            "Continuar?", 
+            parent=self.master
+        )
+        
+        if resposta:
+            # Chama o método do controlador
+            sucesso = False
+            if hasattr(self.controlador, 'reiniciar_jogo'):
+                sucesso = self.controlador.reiniciar_jogo()
+            
+            if sucesso:
+                # Esconde o botão reiniciar e mostra o desistir centralizado
+                self.btn_reiniciar.pack_forget()
+                self.btn_desistir.pack(anchor='center')
+                
+                messagebox.showinfo(
+                    "Tabuleiro Reiniciado", 
+                    "Tabuleiro reiniciado com sucesso!\n\n"
+                    "Estado inicial restaurado.\n"
+                    "Use 'Menu → Iniciar Partida' para uma nova partida.", 
+                    parent=self.master
+                )
+            else:
+                messagebox.showerror("Erro", "Não foi possível reiniciar o tabuleiro.", parent=self.master)
+
+    def mostrar_botao_reiniciar(self):
+        """Mostra o botão de reiniciar e esconde o de desistir"""
+        self.btn_desistir.pack_forget()
+        self.btn_reiniciar.pack(anchor='center')
+
+    def esconder_botao_reiniciar(self):
+        """Esconde o botão de reiniciar e mostra o de desistir"""
+        self.btn_reiniciar.pack_forget()
+        self.btn_desistir.pack(anchor='center')
