@@ -91,20 +91,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             pady=5
         )
         self.btn_desistir.pack(anchor='center')
-        
-        # Botão Reiniciar (inicialmente oculto)
-        self.btn_reiniciar = tk.Button(
-            self.frame_botao,
-            text="REINICIAR TABULEIRO",
-            font=("Helvetica", 14, "bold"),
-            bg="#006400",  # Verde escuro
-            fg=self.cores['texto_botoes'],
-            command=self.reiniciar_jogo,
-            width=18,
-            padx=12,
-            pady=5
-        )
-        # Não faz pack() ainda - será mostrado apenas quando o jogo terminar
 
     def create_menu(self) -> None:
         menu_bar = tk.Menu(self.master)
@@ -179,9 +165,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             # Configura a partida
             self.game_started = True
             self.controlador.iniciar_partida(str(jogador_local_id), jogador_remoto_id, primeiro_jogador_id)
-            
-            # Esconde botão de reiniciar e mostra o de desistir
-            self.esconder_botao_reiniciar()
             
             # Envia sincronização inicial
             self.master.after(2000, lambda: self.enviar_sincronizacao_inicial(primeiro_jogador_id))
@@ -340,9 +323,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
         self.controlador.partida_iniciada = False
         self.status_label.config(text="Oponente desistiu - Você venceu!")
         
-        # Mostra botão de reiniciar
-        self.mostrar_botao_reiniciar()
-        
         messagebox.showinfo("Vitória!", "O oponente desistiu da partida.\nVocê venceu!", parent=self.master)
 
     def receive_withdrawal_notification(self):
@@ -427,9 +407,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             messagebox.showinfo("Fim de Jogo", mensagem, parent=self.master)
             self.game_started = False
             self.status_label.config(text=f"Partida finalizada - Vencedor: {vencedor}")
-            
-            # Mostra botão de reiniciar
-            self.mostrar_botao_reiniciar()
         
         # Aguarda 1 segundo para mostrar o resultado (tempo para ver o estado final)
         self.master.after(1000, mostrar_resultado)
@@ -452,9 +429,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
             messagebox.showinfo("Fim de Jogo", mensagem, parent=self.master)
             self.game_started = False
             self.status_label.config(text="Partida finalizada - Empate")
-            
-            # Mostra botão de reiniciar
-            self.mostrar_botao_reiniciar()
         
         self.master.after(1000, mostrar_resultado)
 
@@ -525,10 +499,6 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                 sucesso = self.controlador.reiniciar_jogo()
             
             if sucesso:
-                # Esconde o botão reiniciar e mostra o desistir centralizado
-                self.btn_reiniciar.pack_forget()
-                self.btn_desistir.pack(anchor='center')
-                
                 messagebox.showinfo(
                     "Tabuleiro Reiniciado", 
                     "Tabuleiro reiniciado com sucesso!\n\n"
@@ -538,13 +508,3 @@ class InterfaceJogador(ttk.Frame, DogPlayerInterface):
                 )
             else:
                 messagebox.showerror("Erro", "Não foi possível reiniciar o tabuleiro.", parent=self.master)
-
-    def mostrar_botao_reiniciar(self):
-        """Mostra o botão de reiniciar e esconde o de desistir"""
-        self.btn_desistir.pack_forget()
-        self.btn_reiniciar.pack(anchor='center')
-
-    def esconder_botao_reiniciar(self):
-        """Esconde o botão de reiniciar e mostra o de desistir"""
-        self.btn_reiniciar.pack_forget()
-        self.btn_desistir.pack(anchor='center')
